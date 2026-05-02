@@ -1,0 +1,113 @@
+import logging
+import struct
+import threading
+import time
+import zlib
+
+import pydualsense  # noqa: F401 — only for hidapi DLL path setup
+import hidapi
+
+from .triggers import M_RIGID, off
+
+log = logging.getLogger("fh5ds.dualsense")
+
+VENDOR_ID = 0x054C
+PRODUCT_IDS = (0x0CE6, 0x0DF2)  # DualSense, DualSense Edge
+
+# valid_flag0: triggers only (bits 2,3). Rumble (bits 0,1) untouched so Steam keeps it.
+TRIG_FLAGS = 0x04 | 0x08
+
+USB = {"rid": 0x02, "flags": 1, "r": 11, "l": 22, "size": 64, "bt": False}
+BT  = {"rid": 0x31, "flags": 2, "r": 12, "l": 23, "size": 78, "bt": True}
+
+
+def _find_gamepad():
+    """Pick the Game Pad HID interface (usage_page=1, usage=5).
+    Audio/sensor interfaces share VID/PID and silently drop trigger writes."""
+    for d in hidapi.enumerate(vendor_id=VENDOR_ID):
+        if (d.product_id in PRODUCT_IDS
+                and getattr(d, "usage_page", 1) == 1
+                and getattr(d, "usage", 5) == 5):
+            return d
+    raise RuntimeError(
+        "DualSense gamepad interface not found. "
+        "If Steam Input + HidHide is on, allowlist python.exe."
+    )
+
+
+class DualSense:
+    """Triggers-only DualSense writer. Steam keeps rumble bits untouched."""
+
+    def __init__(self, startup_pulse_force: int = 180):
+        self.dev = None
+        self.lay = USB
+        self._lock = threading.Lock()
+        self._left = self._right = off()
+        self._dirty = False
+        self._running = False
+        self._thread = None
+        self._pulse_force = startup_pulse_force
+
+    def open(self):
+        info = _find_gamepad()
+        self.dev = hidapi.Device(path=info.path)
+        # BT input report = 78 bytes, USB = 64. One read distinguishes them.
+        self.lay = BT if len(self.dev.read(100)) == 78 else USB
+        # Non-blocking from now on — writes shouldn't wait on input reports.
+        self.dev.nonblocking = True
+        log.info("DualSense connected (%s)", "BT" if self.lay["bt"] else "USB")
+
+        self._running = True
+        self._thread = threading.Thread(target=self._io, daemon=True)
+        self._thread.start()
+
+        # Pulse confirms trigger writes are landing.
+        pulse = (M_RIGID, 0, self._pulse_force)
+        self.set(pulse, pulse); time.sleep(0.2)
+        self.set(off(), off())
+
+    def close(self):
+        if not self.dev:
+            return
+        self.set(off(), off()); time.sleep(0.1)
+        self._running = False
+        if self._thread:
+            self._thread.join(timeout=1.0)
+        self.dev.close()
+        self.dev = None
+
+    def set(self, left, right):
+        with self._lock:
+            self._left, self._right, self._dirty = left, right, True
+
+    def _io(self):
+        # Non-blocking read keeps the BT input pipe drained without stalling
+        # writes. We sleep tiny amounts when there's nothing to do.
+        while self._running:
+            try:
+                self.dev.read(self.lay["size"])  # returns immediately (nonblocking)
+                with self._lock:
+                    if not self._dirty:
+                        time.sleep(0.001)
+                        continue
+                    left, right, self._dirty = self._left, self._right, False
+                self.dev.write(self._build(left, right))
+            except Exception:
+                log.exception("HID I/O failed; stopping trigger thread")
+                self._running = False
+                break
+
+    def _build(self, left, right):
+        L = self.lay
+        buf = bytearray(L["size"])
+        buf[0] = L["rid"]
+        if L["bt"]:
+            buf[1] = 0x02
+        buf[L["flags"]] = TRIG_FLAGS
+        for pos, (mode, p1, p2) in ((L["r"], right), (L["l"], left)):
+            buf[pos]     = mode
+            buf[pos + 1] = p1
+            buf[pos + 2] = p2
+        if L["bt"]:
+            struct.pack_into("<I", buf, 74, zlib.crc32(b"\xA2" + bytes(buf[:74])))
+        return bytes(buf)
