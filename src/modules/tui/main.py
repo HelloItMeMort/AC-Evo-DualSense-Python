@@ -35,17 +35,15 @@ TOGGLES = [
 ]
 
 
+# MARK: Log handler — routes log records into the TUI RichLog widget
 class _LogToWidget(logging.Handler):
-    """Routes log records into the TUI's RichLog (thread-safe)."""
-
     def __init__(self, app: "TriggerTUI"):
         super().__init__()
         self._app = app
 
     def emit(self, record):
         try:
-            msg = self.format(record)
-            self._app.call_from_thread(self._app.write_log, msg)
+            self._app.call_from_thread(self._app.write_log, self.format(record))
         except Exception:
             pass
 
@@ -83,24 +81,19 @@ class TriggerTUI(App):
             yield RichLog(id="right", highlight=False, markup=False, wrap=True, max_lines=2000)
         yield Footer()
 
+    # MARK: Mount — wire logging, open hardware, start loop
     def on_mount(self):
         self.title = "FH5 DualSense"
         self.sub_title = f"UDP {self.settings.udp_host}:{self.settings.udp_port}"
 
-        # Route logs into the right pane. Strip stream handlers (they'd
-        # corrupt the TUI rendering) but KEEP FileHandlers so crash logs
-        # still get written to disk.
+        # Replace all handlers with our TUI widget handler.
         root = logging.getLogger()
-        for h in list(root.handlers):
-            if not isinstance(h, logging.FileHandler):
-                root.removeHandler(h)
+        root.handlers.clear()
         handler = _LogToWidget(self)
         handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", datefmt="%H:%M:%S"))
         root.addHandler(handler)
-        if root.level > logging.INFO or root.level == 0:
-            root.setLevel(logging.INFO)
+        root.setLevel(logging.INFO)
 
-        # Fire the GitHub commit-age check now that the log handler is wired.
         log_latest_commit_age()
 
         # Open hardware + listener and start the loop in a background thread.
@@ -143,6 +136,7 @@ class TriggerTUI(App):
     def write_log(self, msg: str) -> None:
         self.query_one(RichLog).write(msg)
 
+    # MARK: Toggle switch — mutate settings + haptic feedback
     def on_switch_changed(self, event: Switch.Changed) -> None:
         attr = event.switch.id
         if attr and hasattr(self.settings, attr):

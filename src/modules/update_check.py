@@ -9,10 +9,6 @@ log = logging.getLogger("fh5ds")
 
 API_URL = "https://api.github.com/repos/HamzaYslmn/Forza-Horizon-5-DualSense-Python/commits/main"
 REPO_URL = "https://github.com/HamzaYslmn/Forza-Horizon-5-DualSense-Python"
-BLUE = "\033[94m"
-RESET = "\033[0m"
-
-
 def _format_age(seconds: float) -> str:
     if seconds < 3600:
         return f"{int(seconds // 60)} min"
@@ -29,10 +25,9 @@ def _check(timeout: float) -> None:
         commit_time = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
         age_s = (datetime.now(timezone.utc) - commit_time).total_seconds()
         sha = data["sha"][:7]
-        log.info("%sLatest commit %s, %s ago - %s%s",
-                 BLUE, sha, _format_age(age_s), REPO_URL, RESET)
+        log.info("Latest commit %s, %s ago - %s", sha, _format_age(age_s), REPO_URL)
     except Exception as e:
-        log.debug("Update check failed: %s", e)
+        log.warning("Update check failed: %s", e)
 
 
 def log_latest_commit_age(timeout: float = 3.0) -> None:

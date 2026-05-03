@@ -39,8 +39,8 @@ class Settings:
     abs_min_speed_kmh: float = 15.0
     abs_slip_ratio_threshold: float = 1.0
     abs_combined_slip_threshold: float = 1.0
-    abs_freq: int = 35
-    abs_amp: int = 10  # MARK: 10 was too weak for the trigger motor to be felt
+    abs_freq: int = 10
+    abs_amp: int = 10
 
     # --- Throttle (right trigger): exponential ramp baseline -> full press ---
     # Kept softer than the brake — a real gas pedal has very little resistance
@@ -54,9 +54,9 @@ class Settings:
 
     # --- Rev limiter buzz (right trigger) ---
     enable_rev_limiter: bool = True
-    rev_limit_ratio: float = 0.92   # MARK: lowered to 0.92 so it kicks in slightly before hard cutoff
+    rev_limit_ratio: float = 0.93   # MARK: lowered to 0.93 so it kicks in slightly before hard cutoff
     rev_limit_freq: int = 30
-    rev_limit_amp: int = 10        # MARK: 10 was too weak to move the motor
+    rev_limit_amp: int = 10
 
     # --- Gear shift thump (right trigger, single vibration burst) ---
     enable_gear_shift: bool = True
