@@ -42,18 +42,24 @@ The result: a brake pedal that feels like a brake pedal and a gas pedal that pus
 ## 🎮 What you'll feel
 
 ### Left trigger — Brake
-A **continuous, exponential** resistance. The trigger has steady weight even when you're not pressing it (small constant baseline), then climbs gently at first and gets sharply stiffer as you near full press. The **maximum force is intentionally capped well below 255** so the trigger keeps ~10% physical travel reserved — you should always be able to push it a little further. No jitter, no machine-gun buzzing, no off↔rigid toggling around the deadzone, no dead wall that swallows vibration effects.
+A **continuous, exponential** brake resistance. The trigger keeps a tiny always-on baseline so it does not rapidly toggle between off and rigid near the deadzone. As brake input rises, resistance climbs softly at first and gets firmer near the end.
 
-If the handbrake is engaged, a flat bonus force is added so you can feel the difference.
+Left-trigger effects:
+
+| Priority | Effect | Feel |
+|---------:|--------|------|
+| 1 | **ABS / tire-slip pulse** | A fast `35 Hz` vibration when braking hard enough, moving above the minimum speed, and tire slip telemetry crosses the ABS thresholds. |
+| 2 | **Progressive brake resistance** | Exponential rigid resistance from a `1`-force baseline up to `25` during normal braking. Above ~98% input it jumps to full trigger force (`255`). |
+| 3 | **Handbrake bonus** | Adds a flat `25` force on top of the normal brake resistance when the handbrake is engaged. |
 
 ### Right trigger — Throttle
 Strict priority — **only one effect plays at a time**, so animations never fight:
 
 | Priority | Effect | Feel |
 |---------:|--------|------|
-| 1 | **Gear-shift thump** | A short, deep `10 Hz` vibration burst (~80 ms). Felt *through* the trigger even when it's fully depressed — exactly when rigid effects vanish. |
+| 1 | **Gear-shift thump** | A short `20 Hz` vibration burst (~100 ms) when the gear changes under throttle and the car is moving. |
 | 2 | **Rev limiter buzz** | A `30 Hz` vibration when RPM is above the redline ratio. |
-| 3 | **Progressive resistance** | **Linear** rigid force scaling with throttle position, from a `30`-force resting weight up to absolute max (`255`) at 100% pedal. Vibration effects (1) and (2) above bypass this rigid hold entirely via the priority chain, so they remain felt at full throttle. |
+| 3 | **Progressive throttle resistance** | Soft exponential resistance from a `1`-force baseline up to `10` during normal throttle. Above ~98% input it jumps to full trigger force (`255`). |
 
 The chain lives in [TriggerAnimation._throttle()](src/modules/dualsense/triggers.py) — about 20 lines, easy to extend.
 
@@ -166,13 +172,14 @@ The defaults work for almost everyone. Use these only if you need them.
 
 | Argument | Description | Default |
 |----------|-------------|---------|
-| `--host` | UDP bind address | `0.0.0.0` |
+| `--host` | UDP bind address | `127.0.0.1` |
 | `--port` | UDP port | `5300` |
 | `--debug` | Verbose per-packet logging | off |
 
 Example:
 ```bash
-uv run src/main.py --port 5400 --debug
+cd src
+uv run main.py --port 5400 --debug
 ```
 
 ---
@@ -185,29 +192,43 @@ Open [src/modules/settings.py](src/modules/settings.py) and edit any field. Ther
 
 | Field | Default | Effect |
 |-------|--------:|--------|
-| `brake_baseline_force` | `10` | Always-held resistance. Prevents off↔rigid jitter. Increase for a heavier resting feel. |
-| `brake_max_force` | `130` | Resistance at **100%** press. Stay below ~150 to leave physical headroom for vibration. |
-| `brake_curve` | `3.5` | Higher = stays soft longer, sharp kick at the end. Max hardness only hits at ~100%, never before. |
+| `brake_baseline_force` | `1` | Always-held resistance. Prevents off↔rigid jitter near the deadzone. |
+| `brake_max_force` | `25` | Normal brake resistance before the full-press threshold. |
+| `brake_curve` | `2.5` | Higher = softer early press and sharper resistance near the end. |
 | `handbrake_bonus` | `25` | Flat extra rigid force when the handbrake is engaged. |
-| `brake_deadzone` | `20` | Ignore brake input below this raw value (out of 255). |
+| `brake_deadzone` | `10` | Ignore brake input below this raw value (out of 255). |
+| `pedal_full_force_at` | `248` | Pedal value where the trigger jumps to full force (`255`). |
+
+### ABS / tire slip (left trigger)
+
+| Field | Default | Effect |
+|-------|--------:|--------|
+| `enable_abs` | `True` | Toggle the ABS-like tire-slip vibration. |
+| `abs_brake_threshold` | `80` | Minimum brake input required before ABS can activate. |
+| `abs_min_speed_kmh` | `15.0` | Minimum speed required before ABS can activate. |
+| `abs_slip_ratio_threshold` | `1.0` | Tire slip ratio threshold for ABS vibration. |
+| `abs_combined_slip_threshold` | `1.0` | Combined tire slip threshold for ABS vibration. |
+| `abs_freq` | `35` Hz | ABS pulse frequency. |
+| `abs_amp` | `255` | ABS pulse amplitude (0-255). |
 
 ### Throttle (right trigger)
 
 | Field | Default | Effect |
 |-------|--------:|--------|
-| `throttle_baseline_force` | `30` | Always-held resting weight (more than the brake \u2014 a gas pedal has a real spring). |
-| `throttle_max_force` | `255` | Absolute max stiffness at **100%** pedal. Vibration effects (gear shift, rev limiter) bypass the rigid hold via the priority chain, so they're still felt at full throttle. |
-| `throttle_curve` | `1.0` | `1.0` = **linear** \u2014 resistance grows evenly with pedal travel. Raise (e.g. `2.0`) for a softer initial press. |
-| `accel_deadzone` | `20` | Ignore tiny accelerator noise. |
+| `throttle_baseline_force` | `1` | Always-held resting weight. Prevents off↔rigid jitter near the deadzone. |
+| `throttle_max_force` | `10` | Normal throttle resistance before the full-press threshold. Kept softer than the brake. |
+| `throttle_curve` | `5.2` | Higher = much softer light throttle, with resistance arriving late in the press. |
+| `accel_deadzone` | `10` | Ignore tiny accelerator noise. |
+| `pedal_full_force_at` | `248` | Pedal value where the trigger jumps to full force (`255`). |
 
 ### Throttle effects
 
 | Field | Default | Effect |
 |-------|--------:|--------|
 | `enable_gear_shift` | `True` | Toggle the shift thump. |
-| `gear_shift_freq` | `10` Hz | Lower = deeper thump, higher = sharper click. |
+| `gear_shift_freq` | `20` Hz | Lower = deeper thump, higher = sharper click. |
 | `gear_shift_amp` | `255` | Max amplitude (0–255). |
-| `gear_shift_duration_ms` | `80` | How long the burst lasts. |
+| `gear_shift_duration_ms` | `100.0` | How long the burst lasts. |
 | `rev_limit_ratio` | `0.95` | Buzz when `rpm / max_rpm` exceeds this. |
 | `rev_limit_freq` | `30` Hz | Buzz frequency. |
 | `rev_limit_amp` | `255` | Buzz amplitude. |
@@ -245,9 +266,9 @@ src/
 |---------|--------------------|
 | `DualSense gamepad interface not found` | Controller not connected, or HidHide is hiding it. Allowlist `python.exe` in HidHide. |
 | `No UDP packets yet` after several seconds | FH5 Data Out is off, IP/port mismatch, or Windows Firewall is blocking the bind. |
-| Triggers feel weak | Increase `brake_max_force` / `throttle_max_force` (but stay under ~150 to keep travel for vibration), or lower the `curve` toward `1.5`. |
-| Triggers feel like a rock wall before pedal hits 100% | Lower `brake_max_force` / `throttle_max_force`. Above ~150 the DualSense rigid mode locks the trigger entirely. |
-| Triggers feel too stiff at light press | Lower `brake_baseline_force`, or raise the `curve` toward `2.5`+. |
+| Triggers feel weak | Increase `brake_max_force` / `throttle_max_force`, or lower the relevant `curve` for earlier resistance. Values above `pedal_full_force_at` still jump to full force (`255`). |
+| Triggers feel like a rock wall before pedal hits 100% | Lower `brake_max_force` / `throttle_max_force`, or raise the relevant `curve` so resistance arrives later. |
+| Triggers feel too stiff at light press | Lower the relevant baseline force, or raise the relevant `curve` for a softer initial press. |
 | Brake "machine-guns" / buzzes when barely pressed | This was the original off↔rigid jitter — already fixed by the always-held baseline. If it returns, raise the deadzone or the baseline force. |
 | No vibration on gear shift | Make sure you're shifting **under power** at >3 km/h; idle / coasting shifts are intentionally ignored. |
 

@@ -73,7 +73,7 @@ def _max_abs(t, prefix):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description="FH5 DualSense adaptive triggers (Steam keeps rumble)")
-    p.add_argument("--host", default=None, help="UDP bind address (overrides Settings)")
+    p.add_argument("--host", default="127.0.0.1", help="UDP bind address (overrides Settings)")
     p.add_argument("--port", type=int, default=None, help="UDP port (overrides Settings)")
     p.add_argument("--debug", action="store_true", help="Verbose per-packet logs")
     args = p.parse_args()
@@ -92,3 +92,6 @@ if __name__ == "__main__":
         run(settings)
     except KeyboardInterrupt:
         sys.exit(0)
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
