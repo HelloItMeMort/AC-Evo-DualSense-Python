@@ -1,4 +1,4 @@
-"""Textual TUI: tabbed Controls / Logs.
+"""Textual TUI: tabbed Controls / Settings / Logs.
 
 Toggles mutate the live Settings instance the loop reads each frame, so changes
 take effect immediately without a restart.
@@ -8,7 +8,7 @@ import threading
 import time
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import (
     Footer,
     Header,
@@ -88,34 +88,72 @@ SETTING_SECTIONS = [
 ]
 
 
-class _LogToWidget(logging.Handler):
-    def __init__(self, app: "TriggerTUI"):
+class _LogHandler(logging.Handler):
+    def __init__(self, app):
         super().__init__()
-        self._app = app
+        self.app = app
 
     def emit(self, record):
-        try:
-            msg = self.format(record)
-            self._app.call_from_thread(self._app.write_log, msg)
-        except Exception:
-            pass
+        msg = self.format(record)
+        if threading.get_ident() == self.app._thread_id:
+            self.app.write_log(msg)
+        else:
+            self.app.call_from_thread(self.app.write_log, msg)
+
+
+class ControlsPage(VerticalScroll):
+    DEFAULT_CLASSES = "page"
+
+    def __init__(self, settings):
+        super().__init__()
+        self.settings = settings
+
+    def compose(self) -> ComposeResult:
+        for attr, label in TOGGLES:
+            with Horizontal(classes="row"):
+                yield Switch(value=getattr(self.settings, attr), id=attr)
+                yield Label(label)
+
+
+class SettingsPage(VerticalScroll):
+    DEFAULT_CLASSES = "page"
+
+    def __init__(self, settings):
+        super().__init__()
+        self.settings = settings
+
+    def compose(self) -> ComposeResult:
+        for section, fields in SETTING_SECTIONS:
+            yield Label(section, classes="section")
+            for attr, label in fields:
+                value = getattr(self.settings, attr, None)
+                if value is None:
+                    continue
+                input_type = "integer" if isinstance(value, int) and not isinstance(value, bool) else "number"
+                with Horizontal(classes="row"):
+                    yield Label(label)
+                    yield Input(value=str(value), id=f"set-{attr}", type=input_type)
 
 
 class TriggerTUI(App):
     CSS = """
-    Screen { layout: vertical; }
-    #status { dock: top; height: 1; padding: 0 1; background: $boost; color: $text; }
+    Screen { background: $surface; }
+    #status { dock: top; height: 1; padding: 0 2; background: $boost; text-align: center; }
+
     TabbedContent { height: 1fr; }
-    .controls-row { height: 3; }
-    .controls-col { padding: 1 2; }
-    Switch { margin-right: 2; }
-    Label.title { text-style: bold; padding-bottom: 1; }
+    Tabs { align-horizontal: center; }
+    TabPane { padding: 1 2; align-horizontal: center; }
+
+    .page { width: 64; max-width: 100%; height: 1fr; padding: 1 2; }
+
     Label.section { text-style: bold; color: $accent; padding: 1 0 0 0; }
-    Label.note { color: $text-muted; padding-top: 1; text-style: italic; }
-    Label.field { width: 32; padding: 1 1 0 0; }
-    .setting-row { height: 3; }
-    Input { width: 20; }
-    RichLog { padding: 0 1; }
+
+    .row { height: 3; align-vertical: middle; padding: 0 1; }
+    .row Switch { margin-right: 2; }
+    .row Label  { width: 1fr; }
+    .row Input  { width: 14; }
+
+    RichLog { padding: 0 1; height: 1fr; }
     """
     BINDINGS = [
         ("q", "quit", "Quit"),
@@ -132,71 +170,41 @@ class TriggerTUI(App):
         self._ds = None
         self._listener_cm = None
         self._listener = None
-        self._started = False
         self._paused = False
         self._level_idx = LOG_LEVELS.index(DEFAULT_LOG_LEVEL)
-        self._handler = None
-        self._status_thread = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         yield Static("", id="status")
         with TabbedContent(initial="tab-controls"):
             with TabPane("Controls", id="tab-controls"):
-                with Horizontal():
-                    with Vertical(classes="controls-col"):
-                        yield Label("Animations", classes="title")
-                        for attr, label in TOGGLES:
-                            with Horizontal(classes="controls-row"):
-                                yield Switch(value=getattr(self.settings, attr), id=attr)
-                                yield Label(label)
-                        yield Label("Unofficial fan project.", classes="note")
+                yield ControlsPage(self.settings)
             with TabPane("Settings", id="tab-settings"):
-                with VerticalScroll(classes="controls-col"):
-                    for section_title, fields in SETTING_SECTIONS:
-                        yield Label(section_title, classes="section")
-                        for attr, label in fields:
-                            current = getattr(self.settings, attr, None)
-                            if current is None:
-                                continue
-                            input_type = "integer" if isinstance(current, int) and not isinstance(current, bool) else "number"
-                            with Horizontal(classes="setting-row"):
-                                yield Label(label, classes="field")
-                                yield Input(
-                                    value=str(current),
-                                    id=f"set-{attr}",
-                                    type=input_type,
-                                )
-                    yield Label("Changes apply immediately and persist to user_preferences.json.", classes="note")
+                yield SettingsPage(self.settings)
             with TabPane("Logs", id="tab-logs"):
                 yield RichLog(id="logs", highlight=False, markup=False, wrap=True, max_lines=2000)
         yield Footer()
 
-    # MARK: Mount — wire logging, open hardware, start loop
     def on_mount(self):
         self.title = "FH5 DualSense"
         self.sub_title = f"UDP {self.settings.udp_host}:{self.settings.udp_port}"
 
         root = logging.getLogger()
         root.handlers.clear()
-        self._handler = _LogToWidget(self)
-        self._handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", datefmt="%H:%M:%S"))
-        root.addHandler(self._handler)
-        root.setLevel(self._current_level())
+        handler = _LogHandler(self)
+        handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", datefmt="%H:%M:%S"))
+        root.addHandler(handler)
+        root.setLevel(self._level())
 
         self._refresh_status()
+        self.set_interval(1.0, self._refresh_status)
         log_latest_commit_age()
         log.info("Starting controller and telemetry listener...")
-
         self.call_after_refresh(self._start_backend)
-        self._start_status_ticker()
 
     def _start_backend(self):
-        if self._started:
-            return
-        self._started = True
+        s = self.settings
         try:
-            s = self.settings
             self._ds = dualsense.DualSense(
                 startup_pulse_force=s.startup_pulse_force,
                 enable_startup_pulse=s.enable_startup_pulse,
@@ -207,14 +215,13 @@ class TriggerTUI(App):
             self._listener = self._listener_cm.__enter__()
             log.info("Listening on %s:%d", s.udp_host, s.udp_port)
             log.info("In FH5: HUD & Gameplay -> Data Out: ON, IP %s, Port %d", s.udp_host, s.udp_port)
-
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
         except Exception as exc:
             log.exception("Backend startup failed")
-            self._notify_status(f"Backend failed: {exc}")
+            self.query_one("#status", Static).update(f"Backend failed: {exc}")
 
-    def _run_loop(self) -> None:
+    def _run_loop(self):
         try:
             loop.run(self._ds, self._listener, self.settings, stop_event=self._stop)
         finally:
@@ -226,88 +233,44 @@ class TriggerTUI(App):
         if self._thread:
             self._thread.join(timeout=2.0)
         if self._listener_cm:
-            try:
-                self._listener_cm.__exit__(None, None, None)
-            except Exception:
-                pass
+            self._listener_cm.__exit__(None, None, None)
         if self._ds:
             self._ds.close()
 
-    # MARK: Status bar — controller state, pause indicator, log level
-    def _start_status_ticker(self) -> None:
-        def tick():
-            while not self._stop.is_set():
-                try:
-                    self.call_from_thread(self._refresh_status)
-                except Exception:
-                    return
-                time.sleep(1.0)
-
-        self._status_thread = threading.Thread(target=tick, daemon=True)
-        self._status_thread.start()
-
-    def _refresh_status(self) -> None:
+    def _refresh_status(self):
         connected = bool(self._ds and self._ds.connected)
-        ds_state = "[bold green]connected[/]" if connected else "[bold red]waiting[/]"
-        bits = [
-            f"DualSense: {ds_state}",
-            f"Logs: {self._current_level_name()}",
-            "PAUSED" if self._paused else "live",
-        ]
-        try:
-            self.query_one("#status", Static).update("  •  ".join(bits))
-        except Exception:
-            pass
+        state = "[bold green]connected[/]" if connected else "[bold red]waiting[/]"
+        bits = [f"DualSense: {state}", f"Logs: {LOG_LEVELS[self._level_idx]}", "PAUSED" if self._paused else "live"]
+        self.query_one("#status", Static).update("  •  ".join(bits))
 
-    def _notify_status(self, msg: str) -> None:
-        try:
-            self.query_one("#status", Static).update(msg)
-        except Exception:
-            pass
-
-    # MARK: Log helpers
-    def _current_level(self) -> int:
+    def _level(self):
         return getattr(logging, LOG_LEVELS[self._level_idx])
 
-    def _current_level_name(self) -> str:
-        return LOG_LEVELS[self._level_idx]
+    def write_log(self, msg):
+        self.query_one("#logs", RichLog).write(msg, scroll_end=not self._paused)
 
-    def write_log(self, msg: str) -> None:
-        try:
-            self.query_one("#logs", RichLog).write(msg, scroll_end=not self._paused)
-        except Exception:
-            pass
-
-    # MARK: Actions
-    def action_toggle_pause(self) -> None:
+    def action_toggle_pause(self):
         self._paused = not self._paused
         self._refresh_status()
 
-    def action_cycle_level(self) -> None:
+    def action_cycle_level(self):
         self._level_idx = (self._level_idx + 1) % len(LOG_LEVELS)
-        logging.getLogger().setLevel(self._current_level())
+        logging.getLogger().setLevel(self._level())
         self._refresh_status()
-        log.info("Log level: %s", self._current_level_name())
+        log.info("Log level: %s", LOG_LEVELS[self._level_idx])
 
-    def action_clear_logs(self) -> None:
-        try:
-            self.query_one("#logs", RichLog).clear()
-        except Exception:
-            pass
+    def action_clear_logs(self):
+        self.query_one("#logs", RichLog).clear()
 
-    # MARK: Toggle switch — mutate settings + haptic feedback (no log spam)
-    def on_switch_changed(self, event: Switch.Changed) -> None:
+    def on_switch_changed(self, event: Switch.Changed):
         attr = event.switch.id
         if attr and hasattr(self.settings, attr):
             setattr(self.settings, attr, event.value)
             preferences.save(self.settings)
-            self._haptic_pulse(event.value)
+            self._haptic(event.value)
 
-    # MARK: Settings input — commit on Enter
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        self._commit_input(event.input)
-
-    def _commit_input(self, widget: Input) -> None:
+    def on_input_submitted(self, event: Input.Submitted):
+        widget = event.input
         if not widget.id or not widget.id.startswith("set-"):
             return
         attr = widget.id[4:]
@@ -333,12 +296,11 @@ class TriggerTUI(App):
         preferences.save(self.settings)
         log.info("%s = %s", attr, new)
 
-    def _haptic_pulse(self, on: bool) -> None:
-        if not self._ds or not self._ds.connected:
-            return
-        threading.Thread(target=self._do_haptic, args=(on,), daemon=True).start()
+    def _haptic(self, on):
+        if self._ds and self._ds.connected:
+            threading.Thread(target=self._do_haptic, args=(on,), daemon=True).start()
 
-    def _do_haptic(self, on: bool) -> None:
+    def _do_haptic(self, on):
         amp = HAPTIC_AMP_ON if on else HAPTIC_AMP_OFF
         v = vibration(HAPTIC_FREQ_HZ, amp)
         self._ds.set(v, v)

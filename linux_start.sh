@@ -105,4 +105,8 @@ if ! need uv; then
 fi
 
 cd "$APP/src"
-uv run main.py "$@"
+if [ "$#" -gt 0 ]; then
+    echo "Launching game: $*"
+    "$@" &
+fi
+uv run main.py

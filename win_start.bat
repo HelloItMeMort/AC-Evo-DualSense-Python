@@ -100,11 +100,11 @@ if errorlevel 1 (
 
 REM --- Launch ---
 cd /d "%APP%\src"
-if "%~1"=="" (
-    uv run main.py
-) else (
-    uv run main.py %*
+if not "%~1"=="" (
+    echo Launching game: %*
+    start "" %*
 )
+uv run main.py
 set "EXITCODE=%ERRORLEVEL%"
 echo.
 echo App exited with code %EXITCODE%.
