@@ -5,7 +5,12 @@ import threading
 import time
 import zlib
 
-import hid
+# PyPI's hidapi Linux wheel uses libusb, which can't claim the gamepad interface
+# (hid-playstation kernel driver owns it). Use a direct /dev/hidraw shim instead.
+if sys.platform.startswith("linux"):
+    from . import _hidraw as hid
+else:
+    import hid
 
 from .triggers import M_RIGID, off
 
