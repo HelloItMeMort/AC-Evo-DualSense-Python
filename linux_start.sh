@@ -1,107 +1,51 @@
 #!/usr/bin/env bash
-# FH5 DualSense — Linux/macOS stub launcher.
-# Downloads the latest GitHub release into ./app and runs it.
-# Asks before updating to a newer version.
+# FH5 DualSense — Linux/macOS stub launcher. Downloads the latest release into ./app and runs it.
 set -e
 
 GAME_ARGC=$#
-
-pause_exit() {
-    local code=$?
-    echo
-    echo "App exited with code $code."
-    if [ "$GAME_ARGC" -eq 0 ]; then
-        read -r -p "Press Enter to close this window..." _ || true
-    fi
-    exit "$code"
-}
-trap 'pause_exit' EXIT
+trap '_c=$?; echo; echo "App exited with code $_c."; [ "$GAME_ARGC" -eq 0 ] && read -r -p "Press Enter to close this window..." _ || true; exit "$_c"' EXIT
 
 REPO="HamzaYslmn/Forza-Horizon-DualSense-Python"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP="$ROOT/app"
-VERSION_FILE="$APP/.version"
-
-# Launcher self-version. Bump this when linux_start.sh changes.
-LAUNCHER_VERSION=2
+PYPROJECT="$APP/src/pyproject.toml"
 
 need() { command -v "$1" >/dev/null 2>&1; }
-
-# --- Check if this launcher script itself is out of date ---
-open_url() {
-    if need xdg-open; then xdg-open "$1" >/dev/null 2>&1 &
-    elif need open; then open "$1" >/dev/null 2>&1 &
-    elif need wslview; then wslview "$1" >/dev/null 2>&1 &
+fetch() {
+    if need curl; then curl -fsSL "$1"
+    elif need wget; then wget -qO- "$1"
     fi
 }
 
-REMOTE_LAUNCHER=""
-if need curl; then
-    REMOTE_LAUNCHER=$(curl -fsSL "https://raw.githubusercontent.com/$REPO/main/linux_start.sh" 2>/dev/null \
-        | grep -E '^LAUNCHER_VERSION=' | head -n1 | sed -E 's/LAUNCHER_VERSION=([0-9]+).*/\1/')
-elif need wget; then
-    REMOTE_LAUNCHER=$(wget -qO- "https://raw.githubusercontent.com/$REPO/main/linux_start.sh" 2>/dev/null \
-        | grep -E '^LAUNCHER_VERSION=' | head -n1 | sed -E 's/LAUNCHER_VERSION=([0-9]+).*/\1/')
-fi
-
-if [ -n "$REMOTE_LAUNCHER" ] && [ "$REMOTE_LAUNCHER" != "$LAUNCHER_VERSION" ]; then
-    echo
-    echo "============================================================"
-    echo " A newer linux_start.sh is available (yours: $LAUNCHER_VERSION, latest: $REMOTE_LAUNCHER)."
-    echo " The auto-updater can refresh the app, but it cannot replace"
-    echo " this launcher script itself. Please download the new one:"
-    echo
-    echo "   https://github.com/$REPO/releases/latest"
-    echo
-    open_url "https://github.com/$REPO/releases/latest"
-    echo "============================================================"
-    echo
-    read -r -p "Press Enter to exit..." _ || true
-    trap - EXIT
-    exit 0
-fi
-
 # --- Resolve latest release tag ---
-LATEST=""
-if need curl; then
-    LATEST=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" \
-        -H "User-Agent: fh5ds-launcher" 2>/dev/null \
-        | grep -E '"tag_name"' | head -n1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
-elif need wget; then
-    LATEST=$(wget -qO- --header="User-Agent: fh5ds-launcher" \
-        "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
-        | grep -E '"tag_name"' | head -n1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
-fi
+LATEST=$(fetch "https://api.github.com/repos/$REPO/releases/latest" 2>/dev/null \
+    | grep -E '"tag_name"' | head -n1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
 
 SOURCE="release"
 if [ -z "$LATEST" ]; then
-    echo "No release found. Falling back to latest 'main' branch."
+    echo "No release found. Falling back to 'main' branch."
     LATEST="main"
     SOURCE="branch"
 fi
 
+# --- Read installed version from pyproject.toml ---
 CURRENT=""
-[ -f "$VERSION_FILE" ] && CURRENT=$(cat "$VERSION_FILE")
+if [ -f "$PYPROJECT" ]; then
+    v=$(grep -E '^version\s*=' "$PYPROJECT" | head -n1 | sed -E 's/version\s*=\s*"([^"]+)".*/\1/')
+    [ -n "$v" ] && CURRENT="v$v"
+fi
 
 install_release() {
-    local tag="$1"
-    local kind="$2"
-    local zip="$ROOT/fh5ds-$tag.zip"
-    local extract="$ROOT/_extract"
-    local url
+    local tag="$1" kind="$2"
+    local zip="$ROOT/fh5ds.zip" extract="$ROOT/_extract" url
     if [ "$kind" = "branch" ]; then
         url="https://github.com/$REPO/archive/refs/heads/$tag.zip"
     else
         url="https://github.com/$REPO/archive/refs/tags/$tag.zip"
     fi
     echo "Downloading $tag..."
-    if need curl; then
-        curl -fsSL "$url" -o "$zip"
-    else
-        wget -q "$url" -O "$zip"
-    fi
-    rm -rf "$extract"
-    mkdir -p "$extract"
+    fetch "$url" > "$zip"
+    rm -rf "$extract"; mkdir -p "$extract"
     if need unzip; then
         unzip -q "$zip" -d "$extract"
     else
@@ -110,7 +54,6 @@ install_release() {
     rm -rf "$APP"
     mv "$extract"/*/ "$APP"
     rm -rf "$extract" "$zip"
-    echo "$tag" > "$VERSION_FILE"
     echo "Installed $tag."
 }
 
@@ -133,12 +76,8 @@ fi
 
 # --- Ensure uv is available ---
 if ! need uv; then
-    echo "uv was not found."
-    read -r -p "Install uv from https://astral.sh/uv/? [Y/n] " uvans
-    case "${uvans:-Y}" in
-        [Nn]*) python3 -m pip install --user uv ;;
-        *)     curl -LsSf https://astral.sh/uv/install.sh | sh ;;
-    esac
+    echo "uv was not found. Installing from https://astral.sh/uv/ ..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
     if ! need uv; then
         echo "uv installed but not on PATH. Restart your shell or add ~/.local/bin to PATH."
         exit 1
