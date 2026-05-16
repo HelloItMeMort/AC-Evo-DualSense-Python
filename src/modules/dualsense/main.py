@@ -124,7 +124,7 @@ class DualSense:
 
         if self._enable_startup_pulse:
             try:
-                pulse = (M_RIGID, 0, self._pulse_force)
+                pulse = (M_RIGID, (0, self._pulse_force))
                 self.dev.write(self._build(pulse, pulse)); time.sleep(0.2)
                 self.dev.write(self._build(off(), off()))
             except Exception:
@@ -189,10 +189,10 @@ class DualSense:
         if L["bt"]:
             buf[1] = 0x02
         buf[L["flags"]] = TRIG_FLAGS
-        for pos, (mode, p1, p2) in ((L["r"], right), (L["l"], left)):
-            buf[pos]     = mode
-            buf[pos + 1] = p1
-            buf[pos + 2] = p2
+        for pos, (mode, params) in ((L["r"], right), (L["l"], left)):
+            buf[pos] = mode
+            for i, b in enumerate(params[:10]):
+                buf[pos + 1 + i] = b & 0xFF
         if L["bt"]:
             struct.pack_into("<I", buf, 74, zlib.crc32(b"\xA2" + bytes(buf[:74])))
         return bytes(buf)

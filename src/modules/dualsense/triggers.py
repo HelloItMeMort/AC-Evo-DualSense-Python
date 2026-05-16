@@ -21,9 +21,10 @@ Every effect has an enable_* switch in settings.py.
 import time
 
 # --- Raw mode bytes ---
-M_OFF   = 0x05
-M_RIGID = 0x01
-M_PULSE = 0x06
+M_OFF      = 0x05
+M_RIGID    = 0x01
+M_PULSE    = 0x06
+M_FEEDBACK = 0x21
 RAW_MAX = 255
 
 
@@ -31,129 +32,152 @@ def _clamp(v, hi=RAW_MAX):
     return max(0, min(hi, round(v)))
 
 
+# --- Effect primitives ----------------------------------------------------
+
 def off():
-    return (M_OFF, 0, 0)
+    return (M_OFF, ())
 
 def rigid(force):
-    return (M_RIGID, 0, _clamp(force))
+    return (M_RIGID, (0, _clamp(force)))
 
-def vibration(freq_hz, amplitude):
-    return (M_PULSE, _clamp(freq_hz), _clamp(amplitude))
+def vibration(freq, amp):
+    return (M_PULSE, (_clamp(freq), _clamp(amp)))
 
+def feedback(zones):
+    """MultiplePositionFeedback: 10 per-zone strengths (0-8), firmware-enforced."""
+    active = force = 0
+    for i, s in enumerate(zones[:10]):
+        s = max(0, min(8, int(s)))
+        if s:
+            active |= 1 << i
+            force |= (s - 1) << (3 * i)
+    return (M_FEEDBACK, (
+        active & 0xFF, (active >> 8) & 0xFF,
+        force & 0xFF, (force >> 8) & 0xFF, (force >> 16) & 0xFF, (force >> 24) & 0xFF,
+        0, 0, 0, 0,
+    ))
+
+
+def _max_slip(t, prefix):
+    return max(abs(t.get(f"{prefix}_{w}", 0.0)) for w in ("fl", "fr", "rl", "rr"))
+
+
+# --- Brake (L2) effects ---------------------------------------------------
+
+def abs_pulse(t, s):
+    """Tire-slip vibration under hard braking, else None."""
+    if not s.enable_abs:
+        return None
+    if t.get("brake", 0) < s.abs_brake_threshold or t.get("speed", 0.0) < s.abs_min_speed_kmh:
+        return None
+    if (_max_slip(t, "tire_slip_ratio") < s.abs_slip_ratio_threshold
+            and _max_slip(t, "tire_combined_slip") < s.abs_combined_slip_threshold):
+        return None
+    return vibration(s.abs_freq, s.abs_amp)
+
+
+def _ramp(value, deadzone, baseline, max_force, curve, ceiling):
+    """Generic deadzone..ceiling -> baseline..max_force curve. Below deadzone holds baseline."""
+    if value < deadzone:
+        return baseline
+    r = min(1.0, (value - deadzone) / max(ceiling - deadzone, 1))
+    return baseline + (max_force - baseline) * (r ** curve)
+
+
+def brake_resistance(t, s):
+    """Progressive rigid brake ramp + optional handbrake bonus."""
+    handbrake = s.enable_handbrake_bonus and t.get("handbrake", 0)
+    if not s.enable_brake_resistance:
+        return rigid(s.handbrake_bonus) if handbrake else off()
+    force = _ramp(t.get("brake", 0), s.brake_deadzone, s.brake_baseline_force,
+                  s.brake_max_force, s.brake_curve, s.brake_wall_engage_at)
+    if handbrake:
+        force += s.handbrake_bonus
+    return rigid(force)
+
+
+# --- Throttle (R2) effects ------------------------------------------------
+
+def gear_shift_burst(s):
+    """Short vibration burst (caller decides when it's armed)."""
+    return vibration(s.gear_shift_freq, s.gear_shift_amp)
+
+
+def rev_limiter_buzz(t, s):
+    """Vibration above the rev-limit ratio, else None."""
+    if not s.enable_rev_limiter or t.get("accel", 0) < s.accel_deadzone:
+        return None
+    max_rpm = t.get("max_rpm", 0.0)
+    rpm_r = t.get("rpm", 0.0) / max_rpm if max_rpm > 0 else 0.0
+    if rpm_r <= s.rev_limit_ratio:
+        return None
+    return vibration(s.rev_limit_freq, s.rev_limit_amp)
+
+
+def build_wall(zones):
+    """Static firmware wall — top `zones` (1-9) maxed at strength 8. Built once at startup."""
+    n = max(1, min(9, int(zones)))
+    return feedback([0] * (10 - n) + [8] * n)
+
+
+def throttle_ramp(t, s):
+    """Light progressive rigid throttle ramp (same curve formula as brake)."""
+    return rigid(_ramp(t.get("accel", 0), s.accel_deadzone, s.throttle_baseline_force,
+                       s.throttle_max_force, s.throttle_curve, s.throttle_wall_engage_at))
+
+
+# --- Priority chains ------------------------------------------------------
 
 class TriggerAnimation:
     """Computes (left, right) trigger output from FH5 telemetry each frame."""
 
-    def __init__(self):
+    def __init__(self, settings):
         self._prev_gear = 0
         self._shift_until = 0.0
+        self._throttle_wall = False
+        self._brake_wall = False
+        self._wall = build_wall(settings.wall_zones)
 
-    def update(self, t: dict, s) -> tuple:
+    def update(self, t, s):
         if not t.get("on", False):
             return off(), off()
-        now = time.monotonic()
-        return self._brake(t, s), self._throttle(t, s, now)
+        return self._brake(t, s), self._throttle(t, s, time.monotonic())
 
-    # --- Left trigger: brake -------------------------------------------------
+    @staticmethod
+    def _wall_state(value, engaged, engage_at, release_at):
+        """Hysteresis: enter wall at >= engage_at, leave at < release_at."""
+        if engaged:
+            return value >= release_at
+        return value >= engage_at
 
     def _brake(self, t, s):
+        pulse = abs_pulse(t, s)
+        if pulse:
+            return pulse
         brake = t.get("brake", 0)
-
-        if self._abs_active(t, s, brake):
-            return vibration(s.abs_freq, s.abs_amp)
-
-        if not s.enable_brake_resistance:
-            if s.enable_handbrake_bonus and t.get("handbrake", 0):
-                return rigid(s.handbrake_bonus)
-            return off()
-
-        # Always hold baseline so the trigger never toggles off<->rigid (no
-        # "machine gun" jitter near the deadzone).
-        if brake < s.brake_deadzone:
-            force = s.brake_baseline_force
-        else:
-            force = self._pedal_force(
-                brake,
-                s.brake_deadzone,
-                s.brake_baseline_force,
-                s.brake_max_force,
-                s.brake_curve,
-                s.brake_full_force_at,
-                s.pedal_value_max,
-            )
-        if s.enable_handbrake_bonus and t.get("handbrake", 0):
-            force += s.handbrake_bonus
-        return rigid(force)
-
-    # --- Right trigger: throttle (priority chain) ----------------------------
+        self._brake_wall = self._wall_state(brake, self._brake_wall,
+                                            s.brake_wall_engage_at, s.brake_wall_release_at)
+        if self._brake_wall and s.enable_brake_resistance:
+            return self._wall
+        return brake_resistance(t, s)
 
     def _throttle(self, t, s, now):
-        accel = t.get("accel", 0)
-        gear = t.get("gear", 0)
-        speed = t.get("speed", 0.0)
-
-        # Detect upshifts and downshifts between valid gears -> arm shift burst.
-        if (s.enable_gear_shift
-                and self._prev_gear > 0
-                and gear > 0
-                and gear != self._prev_gear
-                and speed > 3.0):
+        # Arm shift burst on up/downshift between valid gears while moving.
+        gear, speed = t.get("gear", 0), t.get("speed", 0.0)
+        if (s.enable_gear_shift and self._prev_gear > 0 and gear > 0
+                and gear != self._prev_gear and speed > 3.0):
             self._shift_until = now + s.gear_shift_duration_ms / 1000.0
         self._prev_gear = gear
 
-        # 1. Gear shift burst must win full-throttle too; FH5 shifts usually
-        # happen while accel is pinned.
         if s.enable_gear_shift and now < self._shift_until:
-            return vibration(s.gear_shift_freq, s.gear_shift_amp)
-
-        # 2. Rev limiter
-        rpm_r = self._ratio(t.get("rpm", 0.0), t.get("max_rpm", 0.0))
-        if s.enable_rev_limiter and accel >= s.accel_deadzone and rpm_r > s.rev_limit_ratio:
-            return vibration(s.rev_limit_freq, s.rev_limit_amp)
-
+            return gear_shift_burst(s)
+        buzz = rev_limiter_buzz(t, s)
+        if buzz:
+            return buzz
         if not s.enable_throttle_resistance:
+            self._throttle_wall = False
             return off()
-
-        # No throttle pressed -> hold baseline (no off<->rigid toggle jitter)
-        if accel < s.accel_deadzone:
-            return rigid(s.throttle_baseline_force)
-
-        # 3. Progressive resistance (exponential: soft early, sharp late).
-        return rigid(self._pedal_force(
-            accel,
-            s.accel_deadzone,
-            s.throttle_baseline_force,
-            s.throttle_max_force,
-            s.throttle_curve,
-            s.throttle_full_force_at,
-            s.pedal_value_max,
-        ))
-
-    # --- Helpers -------------------------------------------------------------
-
-    @staticmethod
-    def _abs_active(t, s, brake):
-        if not s.enable_abs:
-            return False
-        if brake < s.abs_brake_threshold or t.get("speed", 0.0) < s.abs_min_speed_kmh:
-            return False
-        ratio = _max_abs(t, "tire_slip_ratio")
-        combined = _max_abs(t, "tire_combined_slip")
-        return ratio >= s.abs_slip_ratio_threshold or combined >= s.abs_combined_slip_threshold
-
-    @staticmethod
-    def _pedal_force(value, deadzone, baseline, max_force, curve, full_force_at, value_max):
-        if value >= full_force_at:
-            return RAW_MAX
-        ratio = (value - deadzone) / max(value_max - deadzone, 1)
-        return baseline + (max_force - baseline) * (ratio ** curve)
-
-    @staticmethod
-    def _ratio(value, max_value):
-        if max_value <= 0:
-            return 0.0
-        return max(0.0, min(float(value) / float(max_value), 1.0))
-
-
-def _max_abs(t, prefix):
-    return max(abs(t.get(f"{prefix}_{wheel}", 0.0)) for wheel in ("fl", "fr", "rl", "rr"))
+        accel = t.get("accel", 0)
+        self._throttle_wall = self._wall_state(accel, self._throttle_wall,
+                                                s.throttle_wall_engage_at, s.throttle_wall_release_at)
+        return self._wall if self._throttle_wall else throttle_ramp(t, s)

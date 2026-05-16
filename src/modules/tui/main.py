@@ -8,8 +8,9 @@ import threading
 import time
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import (
+    Button,
     Footer,
     Header,
     Input,
@@ -35,57 +36,71 @@ DEFAULT_LOG_LEVEL = "INFO"
 
 log = logging.getLogger("fh5ds")
 
-TOGGLES = [
-    ("enable_brake_resistance",     "Brake resistance"),
-    ("enable_handbrake_bonus",      "Handbrake bonus"),
-    ("enable_abs",                  "ABS pulse"),
-    ("enable_throttle_resistance",  "Throttle resistance"),
-    ("enable_rev_limiter",          "Rev limiter"),
-    ("enable_gear_shift",           "Gear shift thump"),
+L2_TOGGLES = [
+    ("enable_brake_resistance", "Brake resistance"),
+    ("enable_handbrake_bonus",  "Handbrake bonus"),
+    ("enable_abs",              "ABS pulse"),
+]
+
+R2_TOGGLES = [
+    ("enable_throttle_resistance", "Throttle resistance"),
+    ("enable_rev_limiter",         "Rev limiter"),
+    ("enable_gear_shift",          "Gear shift thump"),
 ]
 
 # (section title, [(attr, label), ...])
+# (attr, label, min, max) — range shown to the user and clamped on submit.
 SETTING_SECTIONS = [
     ("Pedals / deadzones", [
-        ("accel_deadzone",          "Accel deadzone (0-255)"),
-        ("brake_deadzone",          "Brake deadzone (0-255)"),
-        ("brake_full_force_at",     "Brake → max force at"),
-        ("throttle_full_force_at",  "Throttle → max force at"),
+        ("accel_deadzone",          "Accel deadzone",       0, 255),
+        ("brake_deadzone",          "Brake deadzone",       0, 255),
     ]),
     ("Brake (left trigger)", [
-        ("brake_baseline_force",    "Baseline force"),
-        ("brake_max_force",         "Max force"),
-        ("brake_curve",             "Curve"),
-        ("handbrake_bonus",         "Handbrake bonus"),
-    ]),
-    ("ABS", [
-        ("abs_brake_threshold",         "Brake threshold"),
-        ("abs_min_speed_kmh",           "Min speed (km/h)"),
-        ("abs_slip_ratio_threshold",    "Slip ratio threshold"),
-        ("abs_combined_slip_threshold", "Combined slip threshold"),
-        ("abs_freq",                    "Frequency (Hz)"),
-        ("abs_amp",                     "Amplitude"),
+        ("brake_baseline_force",    "Baseline force",     0, 255),
+        ("brake_max_force",         "Max force (at wall)",0, 255),
+        ("brake_curve",             "Curve",              0.1, 20.0),
+        ("brake_wall_engage_at",    "Wall engages at",    0, 255),
+        ("brake_wall_release_at",   "Wall releases at",   0, 255),
+        ("handbrake_bonus",         "Handbrake bonus",    0, 255),
     ]),
     ("Throttle (right trigger)", [
-        ("throttle_baseline_force", "Baseline force"),
-        ("throttle_max_force",      "Max force"),
-        ("throttle_curve",          "Curve"),
+        ("throttle_baseline_force",  "Baseline force",      0, 255),
+        ("throttle_max_force",       "Max force (at wall)", 0, 255),
+        ("throttle_curve",           "Curve",               0.1, 20.0),
+        ("throttle_wall_engage_at",  "Wall engages at",     0, 255),
+        ("throttle_wall_release_at", "Wall releases at",    0, 255),
+    ]),
+    ("ABS", [
+        ("abs_brake_threshold",         "Brake threshold",         0, 255),
+        ("abs_min_speed_kmh",           "Min speed (km/h)",        0.0, 500.0),
+        ("abs_slip_ratio_threshold",    "Slip ratio threshold",    0.0, 10.0),
+        ("abs_combined_slip_threshold", "Combined slip threshold", 0.0, 10.0),
+        ("abs_freq",                    "Frequency (Hz)",          0, 255),
+        ("abs_amp",                     "Amplitude",               0, 255),
     ]),
     ("Rev limiter", [
-        ("rev_limit_ratio", "Trigger at RPM ratio"),
-        ("rev_limit_freq",  "Frequency (Hz)"),
-        ("rev_limit_amp",   "Amplitude"),
+        ("rev_limit_ratio", "Trigger at RPM ratio", 0.0, 1.0),
+        ("rev_limit_freq",  "Frequency (Hz)",       0, 255),
+        ("rev_limit_amp",   "Amplitude",            0, 255),
     ]),
     ("Gear shift thump", [
-        ("gear_shift_freq",         "Frequency (Hz)"),
-        ("gear_shift_amp",          "Amplitude"),
-        ("gear_shift_duration_ms",  "Duration (ms)"),
+        ("gear_shift_freq",         "Frequency (Hz)", 0, 255),
+        ("gear_shift_amp",          "Amplitude",      0, 255),
+        ("gear_shift_duration_ms",  "Duration (ms)",  0.0, 2000.0),
     ]),
     ("Misc", [
-        ("startup_pulse_force",    "Startup pulse force"),
-        ("reconnect_interval_s",   "Reconnect interval (s)"),
+        ("startup_pulse_force",    "Startup pulse force",     0, 255),
+        ("reconnect_interval_s",   "Reconnect interval (s)",  0.1, 60.0),
     ]),
 ]
+
+SETTING_RANGES = {attr: (lo, hi) for _, fields in SETTING_SECTIONS for attr, _, lo, hi in fields}
+
+
+def _format_range(lo, hi):
+    if isinstance(lo, int) and isinstance(hi, int):
+        return f"{lo}-{hi}"
+    return f"{lo:g}-{hi:g}"
 
 
 class _LogHandler(logging.Handler):
@@ -102,17 +117,26 @@ class _LogHandler(logging.Handler):
 
 
 class ControlsPage(VerticalScroll):
-    DEFAULT_CLASSES = "page"
+    DEFAULT_CLASSES = "page controls-page"
 
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
 
     def compose(self) -> ComposeResult:
-        for attr, label in TOGGLES:
-            with Horizontal(classes="row"):
-                yield Switch(value=getattr(self.settings, attr), id=attr)
-                yield Label(label)
+        with Horizontal(classes="controls-columns"):
+            with Vertical(classes="controls-col"):
+                yield Label("L2 — Brake", classes="section")
+                for attr, label in L2_TOGGLES:
+                    with Horizontal(classes="row"):
+                        yield Switch(value=getattr(self.settings, attr), id=attr)
+                        yield Label(label)
+            with Vertical(classes="controls-col"):
+                yield Label("R2 — Gas", classes="section")
+                for attr, label in R2_TOGGLES:
+                    with Horizontal(classes="row"):
+                        yield Switch(value=getattr(self.settings, attr), id=attr)
+                        yield Label(label)
 
 
 class SettingsPage(VerticalScroll):
@@ -125,14 +149,15 @@ class SettingsPage(VerticalScroll):
     def compose(self) -> ComposeResult:
         for section, fields in SETTING_SECTIONS:
             yield Label(section, classes="section")
-            for attr, label in fields:
+            for attr, label, lo, hi in fields:
                 value = getattr(self.settings, attr, None)
                 if value is None:
                     continue
                 input_type = "integer" if isinstance(value, int) and not isinstance(value, bool) else "number"
                 with Horizontal(classes="row"):
-                    yield Label(label)
+                    yield Label(f"{label} ({_format_range(lo, hi)})")
                     yield Input(value=str(value), id=f"set-{attr}", type=input_type)
+        yield Button("Reset to defaults", id="reset-settings", variant="error")
 
 
 class TriggerTUI(App):
@@ -145,6 +170,10 @@ class TriggerTUI(App):
     TabPane { padding: 1 2; align-horizontal: center; }
 
     .page { width: 64; max-width: 100%; height: 1fr; padding: 1 2; }
+    .controls-page { width: 80; }
+
+    .controls-columns { width: 1fr; height: auto; }
+    .controls-col { width: 1fr; height: auto; padding: 0 1; }
 
     Label.section { text-style: bold; color: $accent; padding: 1 0 0 0; }
 
@@ -152,6 +181,8 @@ class TriggerTUI(App):
     .row Switch { margin-right: 2; }
     .row Label  { width: 1fr; }
     .row Input  { width: 14; }
+
+    #reset-settings { width: 1fr; margin: 2 0 1 0; }
 
     RichLog { padding: 0 1; height: 1fr; }
     """
@@ -229,6 +260,13 @@ class TriggerTUI(App):
                 self.call_from_thread(self.exit)
 
     def on_unmount(self):
+        # Detach the TUI log handler before tearing down backends: their
+        # shutdown emits log records, and routing those into the already-
+        # unmounted #logs widget raises NoMatches.
+        root = logging.getLogger()
+        for h in list(root.handlers):
+            if isinstance(h, _LogHandler):
+                root.removeHandler(h)
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=2.0)
@@ -247,7 +285,11 @@ class TriggerTUI(App):
         return getattr(logging, LOG_LEVELS[self._level_idx])
 
     def write_log(self, msg):
-        self.query_one("#logs", RichLog).write(msg, scroll_end=not self._paused)
+        try:
+            widget = self.query_one("#logs", RichLog)
+        except Exception:
+            return
+        widget.write(msg, scroll_end=not self._paused)
 
     def action_toggle_pause(self):
         self._paused = not self._paused
@@ -290,11 +332,35 @@ class TriggerTUI(App):
         except ValueError:
             widget.value = str(current)
             return
+        # Clamp numeric inputs to the declared range so users can't push
+        # values that brick the feel or overflow the trigger byte.
+        rng = SETTING_RANGES.get(attr)
+        if rng and isinstance(new, (int, float)) and not isinstance(new, bool):
+            lo, hi = rng
+            clamped = max(lo, min(hi, new))
+            if isinstance(current, int):
+                clamped = int(clamped)
+            if clamped != new:
+                new = clamped
+                widget.value = str(new)
         if new == current:
             return
         setattr(self.settings, attr, new)
         preferences.save(self.settings)
         log.info("%s = %s", attr, new)
+
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "reset-settings":
+            preferences.reset(self.settings)
+            for sw in self.query(Switch):
+                if sw.id and hasattr(self.settings, sw.id):
+                    sw.value = getattr(self.settings, sw.id)
+            for inp in self.query(Input):
+                if inp.id and inp.id.startswith("set-"):
+                    attr = inp.id[4:]
+                    if hasattr(self.settings, attr):
+                        inp.value = str(getattr(self.settings, attr))
+            log.info("Settings reset to defaults.")
 
     def _haptic(self, on):
         if self._ds and self._ds.connected:

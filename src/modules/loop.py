@@ -14,7 +14,7 @@ def _max_abs(t, prefix):
 
 def run(ds, listener, s, stop_event=None):
     OFF = dualsense.triggers.off()
-    anim = dualsense.TriggerAnimation()
+    anim = dualsense.TriggerAnimation(s)
     prev = None
     last_pkt = time.monotonic()
     last_log = 0.0

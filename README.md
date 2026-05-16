@@ -1,6 +1,6 @@
 > Steam profile: <https://steamcommunity.com/id/teccno/>
 >
-> I do not own Forza Horizon 6 yet, so if you appreciate this project, you can gift it to me. Have fun using the app.
+> 💛 Huge thanks to **[Jared (jmac122)](https://github.com/jmac122)** for sponsoring this project by gifting me Forza Horizon 6. This release wouldn't exist without him. Have fun using the app.
 
 <div align="center">
   <h1>🏎️ Forza Horizon — DualSense Adaptive Triggers</h1>
@@ -276,5 +276,9 @@ src/
 
 Built by **[HamzaYslmn](https://github.com/HamzaYslmn)**.
 
+### 💛 Sponsors
+
+- **[Jared (jmac122)](https://github.com/jmac122)** — gifted me Forza Horizon 6 so this project could keep moving forward. Thank you, Jared!
+
 ---
-*Built for an immersive racing experience — KISS code, real feedback.*
+*Built for an immersive racing experience*

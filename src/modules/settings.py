@@ -1,7 +1,4 @@
-"""All tunables in one place. Edit values directly — no presets, no overrides.
-
-Force values are 0–255 (DualSense raw). Frequencies are Hz.
-"""
+"""All tunables in one place. Forces 0-255, frequencies in Hz."""
 
 from __future__ import annotations
 
@@ -15,25 +12,28 @@ class Settings:
     udp_port: int = 5300
     udp_timeout: float = 0.5
 
-    # --- Input deadzones (Forza Data Out pedal bytes 0-255) ---
-    accel_deadzone: int = 50
-    brake_deadzone: int = 50
+    # --- Shared pedal config ---
     pedal_value_max: int = 255
-    brake_full_force_at: int = 248  # ~98%; jumps straight to force 255
-    throttle_full_force_at: int = 250  # ~100%; jumps straight to force 255
+    wall_zones: int = 2                       # firmware wall depth: 1 = only zone 9 (lightest), 9 = whole travel walled
 
-    # --- Brake (left trigger): exponential ramp baseline -> full press ---
-    # Baseline is ALWAYS held (no off()) so the trigger never "machine-guns"
-    # by toggling rigid<->off around the deadzone.
-    # Normal ramp max stays below 255; above 98% brake uses force 255.
+    # =============================================================
+    # L2 — Brake pedal
+    # =============================================================
+
+    # Resistance: rigid curve 0..wall_engage_at -> baseline..max_force, firmware wall at 100%.
     enable_brake_resistance: bool = True
-    brake_baseline_force: int = 0  # constant weight when not pressed
-    brake_max_force: int = 5      # normal ramp max below 100% input
-    brake_curve: float = 4.1        # >1 = soft early, sharp at the end
-    enable_handbrake_bonus: bool = True
-    handbrake_bonus: int = 25       # extra rigid when handbrake engaged
+    brake_deadzone: int = 50
+    brake_baseline_force: int = 20
+    brake_max_force: int = 70                 # rigid force at brake_wall_engage_at (peak of the curve before the wall)
+    brake_curve: float = 5.0                  # parabolic: light through mid travel, sharply firm near the wall
+    brake_wall_engage_at: int = 250           # accel byte to switch to firmware wall
+    brake_wall_release_at: int = 200          # accel byte to release the wall back to rigid curve (hysteresis)
 
-    # --- ABS feel from tire slip telemetry (left trigger) ---
+    # Handbrake bonus: flat extra force when handbrake is engaged.
+    enable_handbrake_bonus: bool = True
+    handbrake_bonus: int = 25
+
+    # ABS pulse: vibrate when tire slip telemetry crosses thresholds under hard braking.
     enable_abs: bool = True
     abs_brake_threshold: int = 80
     abs_min_speed_kmh: float = 15.0
@@ -42,39 +42,44 @@ class Settings:
     abs_freq: int = 10
     abs_amp: int = 20
 
-    # --- Throttle (right trigger): exponential ramp baseline -> full press ---
-    # Kept softer than the brake — a real gas pedal has very little resistance
-    # compared to a brake pedal, and we need finger-travel budget free for the
-    # gear-shift / rev-limit vibration animations.
-    # Above 98% throttle uses force 255 inside the same ramp logic.
-    enable_throttle_resistance: bool = True
-    throttle_baseline_force: int = 0
-    throttle_max_force: int = 3    # softer than brake on purpose
-    throttle_curve: float = 10.5     # steeper = even softer at light press
+    # =============================================================
+    # R2 — Gas pedal
+    # =============================================================
 
-    # --- Rev limiter buzz (right trigger) ---
+    # Resistance: light rigid curve 0..wall_engage_at -> baseline..max_force, firmware wall at 100%.
+    enable_throttle_resistance: bool = True
+    accel_deadzone: int = 50
+    throttle_baseline_force: int = 0
+    throttle_max_force: int = 8               # rigid force at the wall threshold — much lighter than the brake
+    throttle_curve: float = 5.0               # parabolic: feather-light early, slightly firmer near the wall
+    throttle_wall_engage_at: int = 250        # accel byte to switch to firmware wall
+    throttle_wall_release_at: int = 200       # accel byte to release the wall back to rigid (hysteresis)
+
+    # Rev limiter: vibrate when rpm/max_rpm exceeds the ratio.
     enable_rev_limiter: bool = True
-    rev_limit_ratio: float = 0.93   # MARK: lowered to 0.93 so it kicks in slightly before hard cutoff
+    rev_limit_ratio: float = 0.93
     rev_limit_freq: int = 30
     rev_limit_amp: int = 10
 
-    # --- Gear shift thump (right trigger, single vibration burst) ---
+    # Gear shift: single short vibration burst on up/downshift while moving.
     enable_gear_shift: bool = True
-    gear_shift_freq: int = 20           # short, noticeable thump
+    gear_shift_freq: int = 20
     gear_shift_amp: int = 255
     gear_shift_duration_ms: float = 100.0
 
-    # --- Misc ---
+    # =============================================================
+    # System
+    # =============================================================
+
+    # Startup pulse: brief trigger buzz to confirm HID connection on launch.
     enable_startup_pulse: bool = True
     startup_pulse_force: int = 150
-    # Retry interval when the controller is missing or disconnects.
+
+    # Reconnect interval when the controller is missing or disconnects.
     reconnect_interval_s: float = 10.0
 
-    # --- Auto-exit when FH5 closes (cross-platform: Windows + Linux/Proton) ---
+    # Auto-exit when FH5 closes (Windows + Linux/Proton). Telemetry-lost is a fallback for Task Manager kills.
     exit_on_game_close: bool = True
     game_process_name_contains: tuple = ("forza",)
     game_poll_interval_s: float = 1.0
-    # Fallback: if we've received UDP packets and they stop for this long, exit
-    # anyway. Catches Task Manager kills and cases where psutil can't see the
-    # game process. Long enough to survive pause menus / loading screens.
     telemetry_lost_exit_s: float = 60.0
