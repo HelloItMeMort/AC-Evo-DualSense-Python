@@ -23,8 +23,8 @@ class Settings:
     # Resistance: rigid curve 0..wall_engage_at -> baseline..max_force, firmware wall at 100%.
     enable_brake_resistance: bool = True
     brake_deadzone: int = 50
-    brake_baseline_force: int = 20
-    brake_max_force: int = 70                 # rigid force at brake_wall_engage_at (peak of the curve before the wall)
+    brake_baseline_force: int = 10
+    brake_max_force: int = 60                 # rigid force at brake_wall_engage_at (peak of the curve before the wall)
     brake_curve: float = 5.0                  # parabolic: light through mid travel, sharply firm near the wall
     brake_wall_engage_at: int = 250           # accel byte to switch to firmware wall
     brake_wall_release_at: int = 200          # accel byte to release the wall back to rigid curve (hysteresis)
