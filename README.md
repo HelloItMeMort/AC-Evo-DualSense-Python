@@ -8,7 +8,7 @@
 
 > 💛 Huge thanks to **[Jared (jmac122)](https://github.com/jmac122)** for sponsoring this project by gifting me Forza Horizon 6.
 >
-> Steam profile: <https://steamcommunity.com/id/teccno/>
+> My Steam profile: <https://steamcommunity.com/id/teccno/>
 
 ---
 
