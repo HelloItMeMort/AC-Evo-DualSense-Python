@@ -4,11 +4,11 @@
   <p><em>Feel the brakes. Feel the engine. No setup juggling.</em></p>
 </div>
 
+> My Steam profile: <https://steamcommunity.com/id/teccno/>
+
 ![TUI Screenshot](img/tui.png)
 
 > 💛 Huge thanks to **[Jared (jmac122)](https://github.com/jmac122)** for sponsoring this project by gifting me Forza Horizon 6.
->
-> My Steam profile: <https://steamcommunity.com/id/teccno/>
 
 ---
 
