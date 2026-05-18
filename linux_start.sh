@@ -20,15 +20,17 @@ if ! command -v uv >/dev/null 2>&1; then
     command -v uv >/dev/null 2>&1 || { echo "uv not on PATH - restart shell."; exit 1; }
 fi
 
-# Linux only: install DualSense udev rule once (needs sudo; can't live in the
-# zuv bundle because /etc/udev is system-wide).
+# Linux only: install DualSense udev rule once (needs sudo). Pulled from the
+# GitHub repo because /etc/udev is system-wide and can't live in the bundle.
 RULE_DST="/etc/udev/rules.d/70-dualsense.rules"
-RULE_SRC="$ROOT/70-dualsense.rules"
-if [ "$(uname -s)" = "Linux" ] && [ ! -f "$RULE_DST" ] && [ -f "$RULE_SRC" ]; then
+RULE_URL="https://raw.githubusercontent.com/HamzaYslmn/Forza-Horizon-DualSense-Python/main/packaging/linux/70-dualsense.rules"
+if [ "$(uname -s)" = "Linux" ] && [ ! -f "$RULE_DST" ]; then
     read -r -p "Install DualSense udev rule (sudo)? [Y/n] " ans
     case "${ans:-Y}" in [Nn]*) ;; *)
-        sudo cp "$RULE_SRC" "$RULE_DST" \
+        TMP="$(mktemp)" && curl -LsSf "$RULE_URL" -o "$TMP" \
+            && sudo install -m 0644 "$TMP" "$RULE_DST" \
             && sudo udevadm control --reload-rules && sudo udevadm trigger \
+            && rm -f "$TMP" \
             && echo "Installed udev rule. Re-plug controller." ;;
     esac
 fi
