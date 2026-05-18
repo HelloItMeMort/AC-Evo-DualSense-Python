@@ -74,11 +74,12 @@ def ensure_whitelisted() -> None:
     rc, out = _run(cli, "--app-list")
     if rc == 0 and exe.lower() in out.lower():
         _whitelisted = True
-        log.info("HidHide detected — already on whitelist, reconnect stays enabled")
+        log.info("HidHide detected — app already on whitelist (reconnect setting honored)")
         return
     rc, _ = _run(cli, "--app-reg", exe)
     if rc == 0:
         _whitelisted = True
-        log.info("HidHide detected — app added to whitelist, reconnect stays enabled")
+        log.info("HidHide detected — app added to whitelist (reconnect setting honored)")
         return
-    log.warning("HidHide detected — whitelist failed, reconnect disabled to keep the controller")
+    log.warning("HidHide detected — whitelist failed; entering persistent mode "
+                "(controller handle held open, reconnect setting bypassed)")

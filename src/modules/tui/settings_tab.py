@@ -98,11 +98,25 @@ class SettingsTab(VerticalScroll):
         attr = event.switch.id
         if not attr or not hasattr(self.settings, attr):
             return
-        if getattr(self.settings, attr) == event.value:
+        if getattr(self.settings, attr) != event.value:
+            setattr(self.settings, attr, event.value)
+            preferences.save(self.settings)
+            log.info("%s = %s", attr, event.value)
+        # Push live every time — profile-load/reset flow sets widget values
+        # after the settings object is already mutated, so we'd otherwise miss
+        # propagating to the running DualSense instance.
+        self._push_live(attr, event.value)
+
+    def _push_live(self, attr: str, value) -> None:
+        """Push settings that DualSense captures at construction to the running
+        instance so the toggle takes effect without restarting the backend."""
+        ds = getattr(self.app, "_ds", None)
+        if ds is None:
             return
-        setattr(self.settings, attr, event.value)
-        preferences.save(self.settings)
-        log.info("%s = %s", attr, event.value)
+        if attr == "enable_reconnect":
+            ds.set_reconnect_enabled(value)
+        elif attr == "reconnect_interval_s":
+            ds.set_reconnect_interval(value)
 
     def on_input_submitted(self, event: Input.Submitted):
         self._commit(event.input, strict=True)
@@ -152,8 +166,9 @@ class SettingsTab(VerticalScroll):
                     widget.value = str(new)
                 else:
                     return
-        if new == current:
-            return
-        setattr(self.settings, attr, new)
-        preferences.save(self.settings)
-        log.info("%s = %s", attr, new)
+        if new != current:
+            setattr(self.settings, attr, new)
+            preferences.save(self.settings)
+            log.info("%s = %s", attr, new)
+        # Always push live (see on_switch_changed for the profile-load reason).
+        self._push_live(attr, new)

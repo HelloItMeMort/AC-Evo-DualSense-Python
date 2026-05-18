@@ -113,7 +113,7 @@ class DualSense:
         self._enable_startup_pulse = enable_startup_pulse
         self._reconnect_interval = reconnect_interval_s
         self._enable_reconnect = enable_reconnect
-        self._attempted = False
+        self._ever_connected = False
         self._open_hinted = False
         self._waiting_hinted = False
         self._last_attempt = -1e9
@@ -136,9 +136,22 @@ class DualSense:
         hidhide.ensure_whitelisted()
         if hidhide.is_detected() and not hidhide.is_whitelisted():
             self._persistent = True
+        self._log_reconnect_mode()
         self._running = True
         self._thread = threading.Thread(target=self._io, daemon=True)
         self._thread.start()
+
+    def _log_reconnect_mode(self) -> None:
+        if self._persistent:
+            log.info("Reconnect mode: persistent (HidHide handle-keep; "
+                     "initial connect retries every %.0fs)", self._reconnect_interval)
+        elif self._enable_reconnect:
+            log.info("Reconnect mode: auto-reconnect every %.0fs after drops",
+                     self._reconnect_interval)
+        else:
+            log.info("Reconnect mode: disabled — initial connect retries every %.0fs, "
+                     "but drops will not auto-recover (toggle in Settings tab)",
+                     self._reconnect_interval)
 
     def close(self):
         self._running = False
@@ -151,6 +164,31 @@ class DualSense:
         with self._lock:
             self._left, self._right, self._dirty = left, right, True
         self._wake.set()
+
+    def set_reconnect_enabled(self, enabled: bool) -> None:
+        """Live-toggle from the Settings tab. Wakes the I/O thread so a
+        disconnected loop re-checks the retry gate immediately."""
+        new = bool(enabled)
+        if new == self._enable_reconnect:
+            return
+        self._enable_reconnect = new
+        self._wake.set()
+        if self._persistent:
+            log.info("Auto-reconnect %s — HidHide persistent mode is active and overrides this.",
+                     "enabled" if new else "disabled")
+        elif new:
+            log.info("Auto-reconnect enabled — will retry every %.0fs after drops.",
+                     self._reconnect_interval)
+        else:
+            log.info("Auto-reconnect disabled — drops will not auto-recover until re-enabled.")
+
+    def set_reconnect_interval(self, interval_s: float) -> None:
+        new = float(interval_s)
+        if new == self._reconnect_interval:
+            return
+        self._reconnect_interval = new
+        self._wake.set()
+        log.info("Reconnect interval = %.1fs", new)
 
     def _safe_write(self, buf) -> None:
         """Best-effort write — used for startup pulses, power-saver, and the
@@ -166,10 +204,7 @@ class DualSense:
         info = _find_gamepad()
         if not info:
             if not self._waiting_hinted:
-                if self._enable_reconnect:
-                    log.info("Waiting for DualSense — retrying every %.0fs", self._reconnect_interval)
-                else:
-                    log.info("Waiting for DualSense — single attempt (auto-reconnect disabled).")
+                log.info("Waiting for DualSense — retrying every %.0fs", self._reconnect_interval)
                 self._waiting_hinted = True
             return False
         try:
@@ -185,6 +220,7 @@ class DualSense:
         self.dev_path = info.get("path")
         self.lay = BT if _is_bluetooth(info) else USB
         self._open_hinted = self._waiting_hinted = False
+        self._ever_connected = True
         self._last_input_at = time.monotonic()
         log.info("DualSense connected (%s)", "BT" if self.lay["bt"] else "USB")
 
@@ -226,21 +262,15 @@ class DualSense:
             now = time.monotonic()
 
             # --- Disconnected: throttle reconnect attempts ---
+            # Initial connect always retries on the reconnect_interval — the
+            # user needs the controller to come up at startup. The toggle only
+            # gates *re*connects: once we've been connected at least once,
+            # subsequent drops are not retried when enable_reconnect is False.
             if not self.connected:
-                # Skip retries when reconnect is disabled — the initial connect
-                # always runs once so the user can still get a controller at
-                # startup, but subsequent enumeration is what trips HidHide.
-                if self._enable_reconnect or not self._attempted:
+                if self._enable_reconnect or not self._ever_connected:
                     if now - self._last_attempt >= self._reconnect_interval:
                         self._last_attempt = now
-                        first = not self._attempted
-                        self._attempted = True
                         self._try_connect()  # logs success / waiting / open-failure itself
-                        if not self.connected and first and not self._enable_reconnect:
-                            log.warning(
-                                "DualSense not found and auto-reconnect is disabled — "
-                                "enable it in the Settings tab to keep retrying."
-                            )
                 self._wake.wait(0.5)
                 self._wake.clear()
                 continue
