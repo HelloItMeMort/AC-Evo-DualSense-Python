@@ -1,16 +1,43 @@
 #!/usr/bin/env bash
 # FH DualSense - Linux/macOS launcher (zuv).
-# Bundle self-updates from GitHub Releases on each run; ZUV_NO_UPDATE=1 disables.
+# Bundle lives in app/. Auto-downloads from GitHub Releases if missing.
+# Set PRERELEASE=true to track rolling test builds (v999.0.0 tag).
 set -e
-ROOT="$(cd "$(dirname "$0")" && pwd)"
-BUNDLE="$ROOT/fhds.zuv.py"
 
-trap 'c=$?; echo; [ $# -eq 0 ] && read -r -p "Press Enter to close..." _ || true; exit $c' EXIT
+PRERELEASE=false
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+APP="$ROOT/app"
+BUNDLE="$APP/fhds.zuv.py"
+REPO="HamzaYslmn/Forza-Horizon-DualSense-Python"
+
+if [ "$PRERELEASE" = "true" ]; then
+    URL="https://github.com/$REPO/releases/download/v999.0.0/fhds.zuv.py"
+    FLAGS=(--prerelease)
+else
+    URL="https://github.com/$REPO/releases/latest/download/fhds.zuv.py"
+    FLAGS=()
+fi
+
+# Args starting with -- forward to bundle; rest = Steam wrapper game cmd.
+GAME=()
+for a in "$@"; do
+    case "$a" in
+        --*) FLAGS+=("$a") ;;
+        *) GAME+=("$a") ;;
+    esac
+done
+
+trap 'c=$?; echo; [ ${#GAME[@]} -eq 0 ] && read -r -p "Press Enter to close..." _ || true; exit $c' EXIT
+
+mkdir -p "$APP"
 
 if [ ! -f "$BUNDLE" ]; then
-    echo "Could not find $BUNDLE."
-    echo "Download fhds.zuv.py from https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest"
-    exit 1
+    echo "Downloading fhds.zuv.py..."
+    curl -LsSf --fail "$URL" -o "$BUNDLE" || {
+        echo "Download failed. Get it manually from https://github.com/$REPO/releases"
+        exit 1
+    }
 fi
 
 if ! command -v uv >/dev/null 2>&1; then
@@ -20,10 +47,10 @@ if ! command -v uv >/dev/null 2>&1; then
     command -v uv >/dev/null 2>&1 || { echo "uv not on PATH - restart shell."; exit 1; }
 fi
 
-# Linux only: install DualSense udev rule once (needs sudo). Pulled from the
-# GitHub repo because /etc/udev is system-wide and can't live in the bundle.
+# Linux only: install DualSense udev rule once (needs sudo). Pulled from repo
+# because /etc/udev is system-wide and can't live in the bundle.
 RULE_DST="/etc/udev/rules.d/70-dualsense.rules"
-RULE_URL="https://raw.githubusercontent.com/HamzaYslmn/Forza-Horizon-DualSense-Python/main/packaging/linux/70-dualsense.rules"
+RULE_URL="https://raw.githubusercontent.com/$REPO/main/packaging/linux/70-dualsense.rules"
 if [ "$(uname -s)" = "Linux" ] && [ ! -f "$RULE_DST" ]; then
     read -r -p "Install DualSense udev rule (sudo)? [Y/n] " ans
     case "${ans:-Y}" in [Nn]*) ;; *)
@@ -34,16 +61,6 @@ if [ "$(uname -s)" = "Linux" ] && [ ! -f "$RULE_DST" ]; then
             && echo "Installed udev rule. Re-plug controller." ;;
     esac
 fi
-
-# Args starting with -- forward to fhds.zuv.py (--prerelease, --headless, ...).
-# Remaining args = optional Steam wrapper game cmd.
-FLAGS=(); GAME=()
-for a in "$@"; do
-    case "$a" in
-        --*) FLAGS+=("$a") ;;
-        *) GAME+=("$a") ;;
-    esac
-done
 
 [ ${#GAME[@]} -gt 0 ] && "${GAME[@]}" &
 

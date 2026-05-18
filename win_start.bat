@@ -1,13 +1,26 @@
 @echo off
 REM FH DualSense - Windows launcher (zuv).
-REM Args starting with -- forward to fhds.zuv.py (e.g. --prerelease, --headless).
-REM Remaining args = optional Steam wrapper game cmd (e.g. start "" steam://rungameid/1551360).
+REM Bundle lives in app/. Auto-downloads from GitHub Releases if missing.
+REM Set PRERELEASE=true to track rolling test builds (v999.0.0 tag).
 setlocal EnableDelayedExpansion
-set "DIR=%~dp0"
-set "BUNDLE=%DIR%fhds.zuv.py"
-set "FLAGS="
-set "GAME="
 
+set "PRERELEASE=true"
+
+set "DIR=%~dp0"
+set "APP=%DIR%app"
+set "BUNDLE=%APP%\fhds.zuv.py"
+set "REPO=HamzaYslmn/Forza-Horizon-DualSense-Python"
+
+if /i "%PRERELEASE%"=="true" (
+    set "URL=https://github.com/%REPO%/releases/download/v999.0.0/fhds.zuv.py"
+    set "FLAGS=--prerelease"
+) else (
+    set "URL=https://github.com/%REPO%/releases/latest/download/fhds.zuv.py"
+    set "FLAGS="
+)
+
+REM Args starting with -- forward to bundle; rest = Steam wrapper game cmd.
+set "GAME="
 :argloop
 if "%~1"=="" goto ready
 set "a=%~1"
@@ -16,11 +29,14 @@ shift
 goto argloop
 
 :ready
+if not exist "%APP%" mkdir "%APP%"
+
 if not exist "%BUNDLE%" (
-    echo Could not find %BUNDLE%.
-    echo Download fhds.zuv.py from https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest
-    pause
-    exit /b 1
+    echo Downloading fhds.zuv.py...
+    curl.exe -L --fail -o "%BUNDLE%" "%URL%" || (
+        echo Download failed. Get it manually from https://github.com/%REPO%/releases
+        pause & exit /b 1
+    )
 )
 
 where uv >nul 2>nul
@@ -31,6 +47,7 @@ if errorlevel 1 (
     where uv >nul 2>nul || (echo uv not on PATH - restart terminal. & pause & exit /b 1)
 )
 
+REM Optional Steam wrapper: pass game cmd (e.g. start "" steam://rungameid/1551360)
 if defined GAME start "" %GAME%
 
 uv run "%BUNDLE%" %FLAGS%
