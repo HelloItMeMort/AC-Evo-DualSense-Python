@@ -4,7 +4,7 @@ REM Bundle lives in app/. Auto-downloads from GitHub Releases if missing.
 REM Set PRERELEASE=true to track rolling test builds (v999.0.0 tag).
 setlocal EnableDelayedExpansion
 
-set "PRERELEASE=true"
+set "PRERELEASE=false"
 
 set "DIR=%~dp0"
 set "APP=%DIR%app"
