@@ -28,7 +28,7 @@ for a in "$@"; do
     esac
 done
 
-trap 'c=$?; echo; [ ${#GAME[@]} -eq 0 ] && read -r -p "Press Enter to close..." _ || true; exit $c' EXIT
+trap 'c=$?; echo; echo "[fhds exited with code $c]"; [ ${#GAME[@]} -eq 0 ] && read -r -p "Press Enter to close..." _ || true; exit $c' EXIT
 
 mkdir -p "$APP"
 

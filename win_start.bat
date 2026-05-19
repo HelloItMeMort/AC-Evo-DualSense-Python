@@ -51,5 +51,5 @@ REM Optional Steam wrapper: pass game cmd (e.g. start "" steam://rungameid/15513
 if defined GAME start "" %GAME%
 
 uv run "%BUNDLE%" %FLAGS%
-if not defined GAME pause >nul
 endlocal
+exit /b %ERRORLEVEL%
