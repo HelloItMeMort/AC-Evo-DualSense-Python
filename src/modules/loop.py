@@ -63,10 +63,19 @@ def run(ds, listener, s, stop_event=None):
             log.warning("Bad packet from %s:%d (%d bytes): %s", addr[0], addr[1], len(pkt), e)
             continue
 
-        left, right = controller.update(t, s)
+        # MARK: never let a controller logic bug kill the loop - log & skip frame
+        try:
+            left, right = controller.update(t, s)
+        except Exception as e:
+            log.warning("controller.update failed: %s", e)
+            continue
 
         if (left, right) != prev:
-            ds.set(left, right); prev = (left, right)
+            try:
+                ds.set(left, right); prev = (left, right)
+            except Exception as e:
+                # MARK: HID write can fail on disconnect; reconnect logic will retry
+                log.debug("ds.set failed: %s", e)
 
         if now - last_log >= 1.0:
             last_log = now

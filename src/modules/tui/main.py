@@ -218,14 +218,19 @@ class TriggerTUI(App):
 
     def refresh_setting_widgets(self) -> None:
         """Called by tabs after profile load / settings reset."""
-        for sw in self.query(Switch):
-            if sw.id and hasattr(self.settings, sw.id):
-                sw.value = getattr(self.settings, sw.id)
-        for inp in self.query(Input):
-            if inp.id and inp.id.startswith("set-"):
-                attr = inp.id[4:]
-                if hasattr(self.settings, attr):
-                    inp.value = str(getattr(self.settings, attr))
+        # MARK: guard programmatic Switch/Input writes so tab handlers skip save churn
+        self._refreshing = True
+        try:
+            for sw in self.query(Switch):
+                if sw.id and hasattr(self.settings, sw.id):
+                    sw.value = getattr(self.settings, sw.id)
+            for inp in self.query(Input):
+                if inp.id and inp.id.startswith("set-"):
+                    attr = inp.id[4:]
+                    if hasattr(self.settings, attr):
+                        inp.value = str(getattr(self.settings, attr))
+        finally:
+            self._refreshing = False
 
     def haptic(self, on: bool) -> None:
         if self._ds and self._ds.connected:

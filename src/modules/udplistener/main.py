@@ -140,15 +140,27 @@ class UDPListener:
             log.warning("Dual-stack bind failed, falling back to IPv4: %s", e)
             return None
 
-    def _open_ipv4(self) -> socket.socket:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
-        s.bind((self.host, self.port))
-        log.info("UDP listening on %s:%d (IPv4)", self.host, self.port)
-        return s
+    def _open_ipv4(self) -> socket.socket | None:
+        # MARK: return None on bind failure so __enter__ can raise with context
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 4096)
+            except OSError as e:
+                log.warning("SO_RCVBUF rejected: %s", e)
+            s.bind((self.host, self.port))
+            log.info("UDP listening on %s:%d (IPv4)", self.host, self.port)
+            return s
+        except OSError as e:
+            log.warning("IPv4 bind on %s:%d failed: %s", self.host, self.port, e)
+            return None
 
     def __enter__(self):
         self.sock = self._open_dual_stack() or self._open_ipv4()
+        if self.sock is None:
+            raise OSError(
+                f"UDP port {self.port} could not be bound (in use, blocked, or invalid host {self.host!r})"
+            )
         self.sock.settimeout(self.timeout)
         return self
 
@@ -165,6 +177,10 @@ class UDPListener:
         try:
             pkt, addr = self.sock.recvfrom(1500)
         except socket.timeout:
+            return None, None
+        except OSError as e:
+            # MARK: NIC change, sleep/wake, route flap - log once and skip frame
+            log.warning("UDP recvfrom error: %s", e)
             return None, None
         self.sock.setblocking(False)
         try:
