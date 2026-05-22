@@ -203,6 +203,10 @@ class TriggerAnimations:
             return vibrate(s.rev_limit_freq, s.rev_limit_amp)
         return None
 
+    def idle_buzz(self, t, s, now):
+        # Engine-idle sensation - empty stub
+        return None
+    
     def wheelspin_buzz(self, t, s, now):
         # R2 buzz when tires lose grip (wheelspin or drift).
         # At speed: tire_combined_slip catches both longitudinal + lateral slip.
@@ -221,13 +225,13 @@ class TriggerAnimations:
         # Surface profile: tarmac amp is the reference, others scale off it.
         amp = s.wheelspin_amp
         if any(t[f"wheel_in_puddle_{w}"] > 0 for w in wheels):
-            return vibrate(100, max(1, amp // 2))            # water 0.5x
+            return vibrate(130, 1)            # water: tarmac freq, slippery -> half amp
         rumble = max(abs(t[f"surface_rumble_{w}"]) for w in wheels)
-        if rumble > 0.30:                                    # gravel / rocks 2x
-            return vibrate(20, min(255, amp * 2))
-        if rumble > 0.10:                                    # dirt / loose tarmac 1.5x
-            return vibrate(60, min(255, int(amp * 1.5)))
-        return vibrate(100, amp)                             # tarmac 1x
+        if rumble > 0.30:                                    # gravel / rocks: chunky thump
+            return vibrate(15, min(255, amp * 3))
+        if rumble > 0.10:                                    # dirt / loose: low rumble
+            return vibrate(45, min(255, int(amp * 2)))
+        return vibrate(130, amp)                             # tarmac: sharp squeal
 
     def abs_pulse(self, t, s):
         if not s.enable_abs:
@@ -329,23 +333,28 @@ class Controller:
             if shift:
                 return shift
 
-        # 2. Rev limiter buzz - rpm at/over rev_limit_ratio
+        # 2. Idle buzz - stationary with throttle (future enhancement)
+        idle = self.anim.idle_buzz(t, s, now)
+        if idle is not None:
+            return idle
+
+        # 3. Rev limiter buzz - rpm at/over rev_limit_ratio, or handbrake-burnout
         rev = self.anim.rev_buzz(t, s, now)
         if rev:
             return rev
 
-        # 3. Wheelspin buzz - driven wheels spinning, surface-aware amp/freq
+        # 4. Wheelspin buzz - driven wheels spinning, surface-aware amp/freq
         spin = self.anim.wheelspin_buzz(t, s, now)
         if spin is not None:
             return spin
 
-        # 4. Firmware end wall - hard wall near 100% travel (latched via hysteresis)
+        # 5. Firmware end wall - hard wall near 100% travel (latched via hysteresis)
         self._r2_in_wall = _wall_state(accel, self._r2_in_wall,
                                        s.throttle_wall_engage_at, s.throttle_wall_release_at)
         if self._r2_in_wall:
             return self.wall
 
-        # 5. Throttle resistance - default rigid ramp
+        # 6. Throttle resistance - default rigid ramp
         return self.anim.throttle_ramp(t, s)
 
 
@@ -364,7 +373,7 @@ EFFECT_MENU = [
     ("bow(2, 7, 2, 8) FULL pull    - very light pull, max snap-back over wide zone", lambda: bow(2, 7, 2, 8)),
     ("gallop(2, 8, 1, 4, 2)        - slow horse gallop (2 Hz)",                      lambda: gallop(2, 8, 1, 4, 2)),
     ("gallop(2, 8, 1, 4, 5)        - faster gallop (5 Hz)",                          lambda: gallop(2, 8, 1, 4, 5)),
-    ("machine(2, 8, 2, 7, 8, 5)    - oscillate weak<->strong every 0.5s",            lambda: machine(2, 8, 2, 7, 8, 5)),
+    ("machine(1, 8, 2, 7, 8, 5)    - oscillate weak<->strong every 0.5s",            lambda: machine(1, 8, 2, 7, 8, 5)),
     ("machine(2, 8, 0, 7, 4, 8)    - oscillate OFF<->strong every 0.8s",             lambda: machine(2, 8, 0, 7, 4, 8)),
 ]
 
