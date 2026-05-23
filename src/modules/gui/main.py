@@ -96,6 +96,7 @@ class TriggerGUI:
         # Window
         self.root = ctk.CTk()
         self.root.title("FH DualSense")
+        self._set_window_icon()
         self._center_window()
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
@@ -159,6 +160,26 @@ class TriggerGUI:
 
     def font_size(self, base: int) -> int:
         return max(8, int(round(base * self.scale)))
+
+    def _set_window_icon(self):
+        from pathlib import Path
+        data = Path(__file__).resolve().parents[2] / "data"
+        ico = data / "icon.ico"
+        png = data / "icon.png"
+        # iconphoto with a large PNG gives Windows a high-DPI source it can
+        # downscale crisply for the taskbar; iconbitmap alone tends to pick
+        # the 32x32 entry of the .ico for the taskbar (Tk limitation).
+        if png.exists():
+            try:
+                self._icon_img = tk.PhotoImage(file=str(png))
+                self.root.iconphoto(True, self._icon_img)
+            except Exception:
+                pass
+        if sys.platform.startswith("win") and ico.exists():
+            try:
+                self.root.iconbitmap(default=str(ico))
+            except Exception:
+                pass
 
     def _center_window(self):
         self.root.update_idletasks()
