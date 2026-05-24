@@ -138,10 +138,18 @@ jobs:
           prerelease: ${{ needs.prepare.outputs.prerelease == 'true' }}
           generate_release_notes: true
           body: |
+            ## ✅ Recommended: launcher scripts
+
+            Download **`win_start.bat`** (Windows) or **`linux_start.sh`** (Linux), drop it in any folder, and double-click. The launcher fetches `fhds.zuv.py`, installs `uv` if needed, runs the app, and self-updates on every launch. This is the supported path and works the same across all Windows versions.
+
+            ## 🧪 Experimental: standalone EXE
+
+            `FH-DualSense.exe` is a one-file GUI build (no install, MEIPASS auto-cleans on exit). It is **experimental** and does **not** self-update. Prefer `win_start.bat` unless you specifically can't run the launcher.
+
+            ---
             > **Heads up**
             > - The bundle self-updates each run from this release. Keep `fhds.zuv.py` next to your launcher script.
             > - Settings live in `data/user_preferences.json` next to the launcher and survive updates.
             > - Linux: launcher offers to install `70-dualsense.rules` to `/etc/udev/rules.d/` once.
             > - Prerelease channel: run `uv run fhds.zuv.py --prerelease` to track rolling test builds.
-            > - **Windows users:** `FH-DualSense.exe` is a standalone one-file build (GUI). No install. MEIPASS auto-cleans on exit.
           files: release/*
