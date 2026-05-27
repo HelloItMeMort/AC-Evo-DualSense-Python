@@ -68,4 +68,9 @@ fi
 unset PYTHONHOME PYTHONPATH
 export PYTHONNOUSERSITE=1
 
+# Force uv to use its own managed Python (python-build-standalone) instead of
+# any broken system Python. The system Python may be missing tkinter's Tcl/Tk
+# data files; the managed build always ships a working one.
+export UV_PYTHON_PREFERENCE=only-managed
+
 exec uv run "$BUNDLE" "${FLAGS[@]}"

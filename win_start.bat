@@ -26,7 +26,12 @@ if "%~1"=="" goto ready
 set "a=%~1"
 
 if "!a:~0,2!"=="--" goto flag_arg
-if not defined GAME (set "GAME=%1") else set "GAME=!GAME! %1"
+
+if defined GAME goto append_game
+set "GAME=%1"
+goto next_arg
+:append_game
+set "GAME=!GAME! %1"
 goto next_arg
 :flag_arg
 set "FLAGS=!FLAGS! %1"
@@ -61,6 +66,9 @@ REM Don't let host Python env leak into the bundled venv.
 set "PYTHONHOME="
 set "PYTHONPATH="
 set "PYTHONNOUSERSITE=1"
+REM Force uv to use its own managed Python (python-build-standalone) instead
+set "UV_PYTHON_PREFERENCE=only-managed"
+
 
 uv run "%BUNDLE%" %FLAGS%
 endlocal
