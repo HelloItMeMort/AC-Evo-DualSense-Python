@@ -250,6 +250,12 @@ src/
 
 ---
 
+## 🎮 DSXサポート
+
+DSX（DualSenseX）サポートを統合しました。DSXの制限により、1:1の完全な体験を得ることはできないかもしれませんが、最善を尽くしました。現在、少し忠実度を下げたバージョンのアダプティブトリガーエフェクトが完全にサポートされています。
+
+---
+
 ## 🙏 支援者・クレジット
 
 開発者: **[HamzaYslmn](https://github.com/HamzaYslmn)**
@@ -259,12 +265,16 @@ src/
 - **[Jared (jmac122)](https://github.com/jmac122)** - 本プロジェクトの継続と発展のため、Forza Horizon 6 をプレゼントしてくださいました。ありがとう、Jared!
 - **[BeaudinSan](https://github.com/BeaudinSan)** - 非常に寛大なご支援に心から感謝いたします。励みになります！
 - **[McLarenF1God](https://github.com/McLarenF1God)** - Forza Horizon 6 の DLC をプレゼントしていただきました！
+- **[Griever](https://steamcommunity.com/id/Griever666/)** - DSXとDLCをありがとうございます！
 - **[PlusMinusZer0](https://github.com/PlusMinusZer0)** - プリンの差し入れありがとうございます！
 - **[dotcom](https://github.com/a0938670973-dotcom)** - ケーキの差し入れありがとうございます！
 - **[wallbangz](https://github.com/wallbangz)** - ケーキの差し入れありがとうございます！
 - **[BambinoPinguino](https://github.com/BambinoPinguino)** - お茶の差し入れありがとうございます！
 - **[Ereldun](https://steamcommunity.com/)** - コーヒーの差し入れありがとうございます！
 - **[Clevens克林](https://steamcommunity.com/)** - キャンディの差し入れありがとうございます！
+- **[海 拔 88](https://steamcommunity.com/)** - キャンディの差し入れありがとうございます！
+
+また、人知れず本プロジェクトを支援してくださった匿名のスポンサーの皆様、そして温かいお言葉やSNSでのシェア等で私を勇気づけてくださったすべての皆様に、心より感謝申し上げます。
 
 ---
 *より没入感のあるレース体験のために開発されました*

@@ -119,7 +119,7 @@ Port `5300`.
 
 ## HidHide
 
-We do NOT call `HidHideCLI.exe`. `hidhide.is_detected()` is a pure filesystem
+I do NOT call `HidHideCLI.exe`. `hidhide.is_detected()` is a pure filesystem
 probe. When detected, the I/O loop latches into **persistent mode** on the
 first successful connect: keeps the HID handle open, ignores read/write
 errors, skips the watchdog, ignores the `enable_reconnect` setting. This way

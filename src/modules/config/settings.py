@@ -20,7 +20,7 @@ class Settings:
     # Rigid curve: 0..wall_engage_at maps baseline..max_force, then firmware wall at 100%.
     enable_brake_resistance: bool = True
     brake_deadzone: int = 50                  # ignore pedal below this byte
-    brake_baseline_force: int = 20            # force at deadzone exit
+    brake_baseline_force: int = 15            # force at deadzone exit
     brake_max_force: int = 80                 # peak force just before the wall
     brake_curve: float = 5.0                  # parabolic exponent; higher = softer mid, harder near wall
     brake_wall_engage_at: int = 250           # byte that triggers firmware wall. DO NOT CHANGE
@@ -47,7 +47,7 @@ class Settings:
     # Light rigid curve: 0..wall_engage_at maps baseline..max_force, then firmware wall at 100%.
     enable_throttle_resistance: bool = True
     accel_deadzone: int = 50                  # ignore pedal below this byte
-    throttle_baseline_force: int = 0          # force at deadzone exit
+    throttle_baseline_force: int = 1          # force at deadzone exit
     throttle_max_force: int = 8               # peak force just before the wall (lighter than brake)
     throttle_curve: float = 5.0               # parabolic exponent; higher = softer early, firmer near wall
     throttle_wall_engage_at: int = 250        # byte that triggers firmware wall. DO NOT CHANGE
@@ -103,6 +103,13 @@ class Settings:
 
     # MARK: System - updates
     check_for_updates: bool = False           # ZUV loader checks GitHub for a new release at launch
+
+    # MARK: System - DSX
+    # When on, triggers go to DualSenseX over UDP instead of HID. Lets DSX (Steam)
+    # own the controller without HID fighting it. Toggling restarts the backend.
+    use_dsx: bool = False
+    dsx_host: str = "127.0.0.1"               # match the host in DSX settings
+    dsx_port: int = 6969                      # match the port in DSX settings
 
     # MARK: System - language
     # Module name in `lang/` (en, tr, zh, ja). Unknown codes fall back to English.

@@ -250,6 +250,12 @@ src/
 
 ---
 
+## 🎮 DSX 支持
+
+我们已经集成了对 DSX (DualSenseX) 的支持。由于 DSX 的限制，您可能无法获得完美的 1:1 体验，但我已尽了最大努力。目前已完全支持较低保真度的自适应扳机效果。
+
+---
+
 ## 🙏 赞助与致谢
 
 由 **[HamzaYslmn](https://github.com/HamzaYslmn)** 开发完成。
@@ -259,12 +265,16 @@ src/
 - **[Jared (jmac122)](https://github.com/jmac122)** - 送给我《极限竞速：地平线 6》以支持这个项目能够继续维护下去，非常感谢你，Jared!
 - **[BeaudinSan](https://github.com/BeaudinSan)** - 感谢您极为慷慨的赞助支持！这对我有非凡的意义。
 - **[McLarenF1God](https://github.com/McLarenF1God)** - 感谢赞助《极限竞速：地平线 6》的 DLC！
+- **[Griever](https://steamcommunity.com/id/Griever666/)** - 感谢赞助 DSX 和 DLC！
 - **[PlusMinusZer0](https://github.com/PlusMinusZer0)** - 感谢送给我的布丁！
 - **[dotcom](https://github.com/a0938670973-dotcom)** - 感谢送给我的蛋糕！
 - **[wallbangz](https://github.com/wallbangz)** - 感谢送给我的蛋糕！
 - **[BambinoPinguino](https://github.com/BambinoPinguino)** - 感谢送给我的茶！
 - **[Ereldun](https://steamcommunity.com/)** - 感谢送给我的咖啡！
 - **[Clevens克林](https://steamcommunity.com/)** - 感谢送给我的糖果！
+- **[海 拔 88](https://steamcommunity.com/)** - 感谢送给我的糖果！
+
+同时，也要向默默支持该项目的匿名赞助者们，以及所有通过赞赏、鼓励和在社交媒体上分享，一路上给我带来动力的朋友们，致以最诚挚的感谢！
 
 ---
 *为了更具沉浸感的赛车游戏体验而打造*

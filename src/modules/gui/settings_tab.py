@@ -4,6 +4,7 @@ Each top-level section becomes a Card. Inside, rows use FieldRow for
 label-control alignment.
 """
 import logging
+import threading
 
 import customtkinter as ctk
 
@@ -64,7 +65,15 @@ SETTING_SECTIONS = [
 ]
 
 SYSTEM_SECTIONS = [
-    ("Telemetry (applies on next launch)", [
+    ("DSX", [
+        ("use_dsx", "DSX integration", None, None,
+         "Send triggers to DualSenseX over UDP. Takes effect immediately."),
+        ("dsx_host", "Host", None, None,
+         "Default 127.0.0.1. Match the host in DSX settings."),
+        ("dsx_port", "Port", 1, 65535,
+         "Default 6969. Match the port in DSX settings."),
+    ]),
+    ("Forza telemetry (applies on next launch)", [
         ("udp_port", "UDP port", 1, 65535,
          "In Forza HUD: host 127.0.0.1 (try ::1 if it fails)."),
     ]),
@@ -148,7 +157,7 @@ class SettingsTab(ctk.CTkFrame):
             if isinstance(value, bool):
                 self._add_switch_row(card, attr, label, hint)
             elif isinstance(lo, (int, float)) and isinstance(hi, (int, float)):
-                if attr == "udp_port":
+                if attr in ("udp_port", "dsx_port"):
                     self._add_entry_only_row(card, attr, label, value, hint)
                 else:
                     self._add_slider_row(card, attr, label, value, lo, hi, hint)
@@ -159,7 +168,9 @@ class SettingsTab(ctk.CTkFrame):
     # MARK: row helpers -----------------------------------------------------
 
     def _add_switch_row(self, parent, attr: str, label: str, hint: str):
-        row = W.FieldRow(parent, t(label), hint=t(hint) if hint else "")
+        # The DSX toggle has a multi-line hint; wrap it so it doesn't clip.
+        hint_wrap = self.app.px(500) if attr == "use_dsx" else 0
+        row = W.FieldRow(parent, t(label), hint=t(hint) if hint else "", hint_wrap=hint_wrap)
         row.pack(fill="x", padx=T.PAD_MD, pady=T.PAD_XS)
         sw = ctk.CTkSwitch(row.controls, text="",
                            command=lambda a=attr: self._on_switch(a))
@@ -297,6 +308,11 @@ class SettingsTab(ctk.CTkFrame):
         ds = getattr(self.app, "_ds", None)
         if ds is None:
             return
+        # MARK: use_dsx swap - restart backend immediately on toggle
+        if attr == "use_dsx":
+            threading.Thread(target=self.app._restart_backend, daemon=True).start()
+            return
+        # DSXClient implements these as no-ops, so calling unconditionally is safe.
         if attr == "enable_reconnect":
             ds.set_reconnect_enabled(value)
         elif attr == "reconnect_interval_s":

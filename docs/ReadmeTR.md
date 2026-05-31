@@ -250,6 +250,12 @@ src/
 
 ---
 
+## 🎮 DSX Desteği
+
+DSX (DualSenseX) desteğini entegre ettik. DSX limitasyonları sebebiyle 1:1 aynı deneyimi yakalayamayabilirsiniz, ama elimden geleni yaptım. Şu anda uyarlanabilir tetik efektlerinin daha düşük hassasiyete sahip bir sürümü tam olarak desteklenmektedir.
+
+---
+
 ## 🙏 Teşekkürler
 
 **[HamzaYslmn](https://github.com/HamzaYslmn)** tarafından geliştirildi.
@@ -259,12 +265,16 @@ src/
 - **[Jared (jmac122)](https://github.com/jmac122)** - bu projenin devam edebilmesi için bana Forza Horizon 6 hediye etti. Teşekkürler Jared!
 - **[BeaudinSan](https://github.com/BeaudinSan)** - inanılmaz cömert desteğiniz için çok teşekkür ederim! Benim için gerçekten çok değerli.
 - **[McLarenF1God](https://github.com/McLarenF1God)** - Forza Horizon 6 DLC'leri için teşekkürler!
+- **[Griever](https://steamcommunity.com/id/Griever666/)** - DSX ve DLC'ler için teşekkürler!
 - **[PlusMinusZer0](https://github.com/PlusMinusZer0)** - Puding için teşekkürler!
 - **[dotcom](https://github.com/a0938670973-dotcom)** - Kek için teşekkürler!
 - **[wallbangz](https://github.com/wallbangz)** - Kek için teşekkürler!
 - **[BambinoPinguino](https://github.com/BambinoPinguino)** - Çay için teşekkürler!
 - **[Ereldun](https://steamcommunity.com/)** - Kahve için teşekkürler!
 - **[Clevens克林](https://steamcommunity.com/)** - Şeker için teşekkürler!
+- **[海 拔 88](https://steamcommunity.com/)** - Şeker için teşekkürler!
+
+Ayrıca bu projeyi sessizce destekleyen anonim sponsorlara ve takdirleri, nazik sözleri ve sosyal medyadaki paylaşımlarıyla bu yolculuk boyunca beni motive eden herkese yürekten teşekkür ederim.
 
 ---
 *Daha sürükleyici bir yarış deneyimi için geliştirildi*

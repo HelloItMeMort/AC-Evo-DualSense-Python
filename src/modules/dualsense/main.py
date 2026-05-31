@@ -45,7 +45,7 @@ _mac_cache_lock = threading.Lock()
 def _enumerate_dualsenses():
     """DualSense game-pad interfaces visible to hidapi. Filtered to
     usage_page=1, usage=5 (audio/sensor interfaces share VID/PID).
-    Windows hidapi returns empty serials for USB DualSenses; we backfill via HID feature report 0x09.
+    Windows hidapi returns empty serials for USB DualSenses; I backfill via HID feature report 0x09.
     When the same controller appears on both USB and BT, the BT entry is dropped (wired wins)."""
     devices = [d for d in hid.enumerate(VENDOR_ID, 0)
                if d.get("product_id") in PRODUCT_IDS
@@ -299,7 +299,7 @@ class DualSense:
     # MARK: connect / disconnect helpers
     def _try_connect(self) -> bool:
         devices = _enumerate_dualsenses()
-        # Log enumeration deltas so we can see if the OS hides/exposes the device.
+        # Log enumeration deltas so I can see if the OS hides/exposes the device.
         n = len(devices)
         if n != getattr(self, "_last_enum_count", -1):
             self._last_enum_count = n
@@ -376,7 +376,8 @@ class DualSense:
         self.dev = None
         self.dev_path = None
         self.dev_serial = None
-        if was_connected:
+        # Skip the "disconnected" warning during intentional shutdown
+        if was_connected and self._running:
             suffix = f" ({reason})" if reason else ""
             if self._enable_reconnect:
                 log.warning("DualSense disconnected%s — retrying every %.0fs",

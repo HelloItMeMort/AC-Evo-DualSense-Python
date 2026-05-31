@@ -27,7 +27,7 @@ import webbrowser
 import customtkinter as ctk
 
 from lang import set_language, t
-from modules import dualsense, forzahorizon, loop
+from modules import forzahorizon, loop, make_backend
 from modules.config import preferences, profiles
 from modules.config.preferences import _version
 from modules.dualsense.adaptive_trigger import off, vibrate
@@ -443,19 +443,15 @@ class TriggerGUI:
         s = self.settings
         try:
             preferences.load(s)
-            self._ds = dualsense.DualSense(
-                startup_pulse_force=s.startup_pulse_force,
-                enable_startup_pulse=s.enable_startup_pulse,
-                reconnect_interval_s=s.reconnect_interval_s,
-                enable_reconnect=s.enable_reconnect,
-                controller_lock_serial=s.controller_lock_serial,
-            )
+            self._ds = make_backend(s, s.enable_startup_pulse)
             self._ds.open()
             self._listener_cm = forzahorizon.UDPListener(s.udp_host, s.udp_port, s.udp_timeout)
             self._listener = self._listener_cm.__enter__()
             log.info("Listening on %s:%d", s.udp_host, s.udp_port)
             log.info("In game: HUD & Gameplay -> Data Out: ON, IP %s, Port %d",
                      s.udp_host, s.udp_port)
+            if s.use_dsx:
+                log.info("DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
         except OSError:
@@ -477,6 +473,35 @@ class TriggerGUI:
                 except (RuntimeError, tk.TclError):
                     pass
 
+    def _restart_backend(self):
+        """Swap the running backend without touching the UDP listener.
+        Called off the Tk thread (via threading.Thread) so we can join the old loop."""
+        # MARK: stop old loop + backend, reuse listener
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=2.0)
+        if self._ds:
+            self._ds.close()
+        self._stop.clear()
+        s = self.settings
+        try:
+            # MARK: suppress pulse on hot-swap
+            self._ds = make_backend(s, False)
+            self._ds.open()
+            if s.use_dsx:
+                log.info("DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
+            else:
+                log.info("HID mode: writing direct to DualSense")
+            self._thread = threading.Thread(target=self._run_loop, daemon=True)
+            self._thread.start()
+        except Exception as exc:
+            log.exception("Backend restart failed")
+            try:
+                self.root.after(0, lambda: self.status_pill.set_label(
+                    t("Backend failed: {error}").format(error=exc)))
+            except (RuntimeError, tk.TclError):
+                pass
+
     # MARK: status / profile ------------------------------------------------
 
     def _tick_status(self):
@@ -487,7 +512,12 @@ class TriggerGUI:
 
     def _refresh_status(self):
         ds = self._ds
-        if ds and getattr(ds, "persistent", False):
+        if self.settings.use_dsx:
+            if ds and ds.connected:
+                color, label = T.BLUE, t("DSX: active")
+            else:
+                color, label = T.RED, t("DSX: off")
+        elif ds and getattr(ds, "persistent", False):
             color, label = T.GREEN, f"{t('connected')} - {t('latched')}"
         elif ds and ds.connected:
             color, label = T.GREEN, t("connected")

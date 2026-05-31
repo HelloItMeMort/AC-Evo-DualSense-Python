@@ -1,5 +1,6 @@
 """Settings tab: plain-language labels, draggable sliders, live save."""
 import logging
+import threading
 
 from textual.app import ComposeResult
 from textual.containers import Horizontal, VerticalScroll
@@ -61,7 +62,15 @@ SETTING_SECTIONS = [
 ]
 
 SYSTEM_SECTIONS = [
-    ("Telemetry (applies on next launch)", [
+    ("DSX", [
+        ("use_dsx", "DSX integration", None, None,
+         "Send triggers to DualSenseX over UDP. Takes effect immediately."),
+        ("dsx_host", "Host", None, None,
+         "Default 127.0.0.1. Match the host in DSX settings."),
+        ("dsx_port", "Port", 1, 65535,
+         "Default 6969. Match the port in DSX settings."),
+    ]),
+    ("Forza telemetry (applies on next launch)", [
         ("udp_port", "UDP port", 1, 65535,
          "In Forza HUD: host 127.0.0.1 (try ::1 if it fails)."),
     ]),
@@ -134,6 +143,10 @@ class SettingsTab(VerticalScroll):
         max-width: 14;
         height: 3;
     }
+    SettingsTab #set-dsx_host, SystemTab #set-dsx_host {
+        width: 16;
+        max-width: 16;
+    }
     SettingsTab Label.hint, SystemTab Label.hint {
         width: 1fr;
         height: auto;
@@ -170,8 +183,8 @@ class SettingsTab(VerticalScroll):
                     input_type = "integer" if isinstance(value, int) else "number"
                     # MARK: integer sliders snap to 5; float sliders snap to span/200
                     step = 5.0 if isinstance(value, int) else None
-                    # MARK: UDP port has no meaningful "tune by feel" - skip the slider
-                    if attr == "udp_port":
+                    # MARK: ports have no meaningful "tune by feel" - skip the slider
+                    if attr in ("udp_port", "dsx_port"):
                         with Horizontal(classes="row"):
                             yield Label(t(label), classes="field")
                             # MARK: flex spacer keeps the input aligned with the slider column
@@ -199,6 +212,9 @@ class SettingsTab(VerticalScroll):
                 else:
                     with Horizontal(classes="row"):
                         yield Label(t(label), classes="field")
+                        # Flex spacer right-aligns the host box like the port box above it.
+                        if attr == "dsx_host":
+                            yield Label("", classes="spacer")
                         yield Input(value=_format_value(value), id=f"set-{attr}")
                 if hint:
                     yield Label(t(hint), classes="hint")
@@ -219,7 +235,7 @@ class SettingsTab(VerticalScroll):
             preferences.save(self.settings)
             log.info("%s = %s", attr, event.value)
         # Push live every time - profile-load/reset sets widget values after
-        # the settings object is already mutated, so we'd otherwise miss
+        # the settings object is already mutated, so I'd otherwise miss
         # propagating to the running DualSense instance.
         self._push_live(attr, event.value)
 
@@ -334,6 +350,12 @@ class SettingsTab(VerticalScroll):
         ds = getattr(self.app, "_ds", None)
         if ds is None:
             return
+        # MARK: use_dsx swap - restart backend immediately so the user doesn't
+        # have to manually quit and relaunch after toggling DSX on/off.
+        if attr == "use_dsx":
+            threading.Thread(target=self.app._restart_backend, daemon=True).start()
+            return
+        # DSXClient implements these as no-ops, so calling unconditionally is safe.
         if attr == "enable_reconnect":
             ds.set_reconnect_enabled(value)
         elif attr == "reconnect_interval_s":

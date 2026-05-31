@@ -79,7 +79,7 @@ STRINGS = {
     ),
 
     # --- вкладка «Система» — разделы / поля ---
-    "Telemetry (applies on next launch)": "Телеметрия (применится при следующем запуске)",
+    "Forza telemetry (applies on next launch)": "Forza-телеметрия (применится при следующем запуске)",
     "Startup pulse": "Импульс при запуске",
     "Reconnect": "Переподключение",
     "Game detection": "Определение игры",
@@ -89,6 +89,23 @@ STRINGS = {
     "Reconnect check interval (s)": "Интервал проверки подключения (с)",
     "Auto-exit when the game closes": "Автовыход при закрытии игры",
     "Game-watch check interval (s)": "Интервал проверки игры (с)",
+
+    # --- DSX ---
+    "DSX": "DSX",
+    "DSX integration": "Интеграция с DSX",
+    "Send triggers to DualSenseX over UDP. Takes effect immediately.":
+        "Отправлять триггеры в DualSenseX через UDP. Вступает в силу немедленно.",
+    "DSX connection": "Подключение DSX",
+    "Host": "Хост",
+    "Port": "Порт",
+    "Default 127.0.0.1. Match the host in DSX settings.":
+        "По умолчанию 127.0.0.1. Должно совпадать с хостом в настройках DSX.",
+    "Default 6969. Match the port in DSX settings.":
+        "По умолчанию 6969. Должно совпадать с портом в настройках DSX.",
+    "DSX is active - controller managed by DSX. Disable DSX to select a controller here.":
+        "DSX активен — геймпад управляется DSX. Отключите DSX, чтобы выбрать геймпад здесь.",
+    "DSX: active": "DSX: активен",
+    "DSX: off": "DSX: выкл",
 
     # --- вкладка «Система» — блок геймпада ---
     "Controller": "Геймпад",

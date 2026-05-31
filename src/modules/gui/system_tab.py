@@ -50,6 +50,9 @@ class SystemTab(SettingsTab):
         self._radio_holder: "W.FastScroll | None" = None
         self._radio_buttons: list[ctk.CTkRadioButton] = []
         self._update_switch: ctk.CTkSwitch | None = None
+        self._controller_card: "W.Card | None" = None
+        self._dsx_note: "W.Hint | None" = None
+        self._updates_card: "W.Card | None" = None
         super().__init__(parent, app)
         if sentinel_path() is not None:
             apply_sentinel(self.settings.check_for_updates)
@@ -57,14 +60,17 @@ class SystemTab(SettingsTab):
 
     def _build(self):
         self._build_controller_card()
+        self._build_dsx_note()
         self._build_updates_card()
         # Standard sections from SYSTEM_SECTIONS
         super()._build()
+        # Run after every card exists so the DSX/controller swap can reference them.
+        self._sync_controller_visibility()
 
     # MARK: controller card -------------------------------------------------
 
     def _build_controller_card(self):
-        card = W.Card(self._scroll)
+        card = self._controller_card = W.Card(self._scroll)
         card.pack(fill="x", pady=(0, T.PAD_MD))
         W.H2(card, t("Controller")).pack(anchor="w", padx=T.PAD_MD,
                                          pady=(T.PAD_MD, T.PAD_XS))
@@ -83,8 +89,31 @@ class SystemTab(SettingsTab):
         W.SecondaryButton(actions, t("Rescan"), self._on_rescan, width=120
                           ).pack(side="left")
 
+    def _build_dsx_note(self):
+        # Shown in place of the controller card while DSX owns the controller.
+        self._dsx_note = W.Hint(
+            self._scroll,
+            t("DSX is active - controller managed by DSX. "
+              "Disable DSX to select a controller here."),
+            wrap=self.app.px(640),
+        )
+
+    def _sync_controller_visibility(self):
+        """Controller picking is meaningless while DSX owns the device, so swap the
+        controller card for an explanatory note when DSX is on."""
+        if self._controller_card is None or self._dsx_note is None:
+            return
+        if self.settings.use_dsx:
+            self._controller_card.pack_forget()
+            self._dsx_note.pack(fill="x", padx=T.PAD_MD, pady=(0, T.PAD_MD),
+                                before=self._updates_card)
+        else:
+            self._dsx_note.pack_forget()
+            self._controller_card.pack(fill="x", pady=(0, T.PAD_MD),
+                                       before=self._updates_card)
+
     def _build_updates_card(self):
-        card = W.Card(self._scroll)
+        card = self._updates_card = W.Card(self._scroll)
         card.pack(fill="x", pady=(0, T.PAD_MD))
         W.H2(card, t("Updates")).pack(anchor="w", padx=T.PAD_MD,
                                       pady=(T.PAD_MD, T.PAD_SM))
@@ -197,6 +226,11 @@ class SystemTab(SettingsTab):
         threading.Thread(target=self._enumerate_async, daemon=True).start()
 
     # MARK: updates ---------------------------------------------------------
+
+    def _on_switch(self, attr: str):
+        super()._on_switch(attr)
+        if attr == "use_dsx":
+            self._sync_controller_visibility()
 
     def _on_update_toggle(self):
         if self._update_switch is None:

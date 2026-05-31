@@ -9,7 +9,7 @@ from textual.containers import Horizontal
 from textual.widgets import Button, Header, Input, Static, Switch, TabbedContent, TabPane
 
 from lang import set_language, t
-from modules import dualsense, loop, forzahorizon
+from modules import loop, forzahorizon, make_backend
 from modules.config import preferences, profiles
 from modules.dualsense.adaptive_trigger import off, vibrate
 from modules.config.preferences import _version
@@ -163,18 +163,14 @@ class TriggerTUI(App):
         try:
             # MARK: resync prefs - user may have switched profile before this deferred call ran
             preferences.load(s)
-            self._ds = dualsense.DualSense(
-                startup_pulse_force=s.startup_pulse_force,
-                enable_startup_pulse=s.enable_startup_pulse,
-                reconnect_interval_s=s.reconnect_interval_s,
-                enable_reconnect=s.enable_reconnect,
-                controller_lock_serial=s.controller_lock_serial,
-            )
+            self._ds = make_backend(s, s.enable_startup_pulse)
             self._ds.open()
             self._listener_cm = forzahorizon.UDPListener(s.udp_host, s.udp_port, s.udp_timeout)
             self._listener = self._listener_cm.__enter__()
             log.info("Listening on %s:%d", s.udp_host, s.udp_port)
             log.info("In game: HUD & Gameplay -> Data Out: ON, IP %s, Port %d", s.udp_host, s.udp_port)
+            if s.use_dsx:
+                log.info("DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
         except OSError as exc:
@@ -196,6 +192,32 @@ class TriggerTUI(App):
             if not self._stop.is_set():
                 self.call_from_thread(self.exit)
 
+    def _restart_backend(self):
+        """Swap the running backend without touching the UDP listener.
+        Called when use_dsx is toggled live so the change takes effect immediately."""
+        # MARK: stop old loop + backend, then reuse the listener
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=2.0)
+        if self._ds:
+            self._ds.close()
+        self._stop.clear()
+        s = self.settings
+        try:
+            # MARK: suppress pulse on hot-swap - avoid confusing the user mid-session
+            self._ds = make_backend(s, False)
+            self._ds.open()
+            if s.use_dsx:
+                log.info("DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
+            else:
+                log.info("HID mode: writing direct to DualSense")
+            self._thread = threading.Thread(target=self._run_loop, daemon=True)
+            self._thread.start()
+        except Exception as exc:
+            log.exception("Backend restart failed")
+            self.query_one("#status", Static).update(t("Backend failed: {error}").format(error=exc))
+
+
     @staticmethod
     def _open_url(url: str) -> None:
         # webbrowser.open() can block while a browser cold-starts
@@ -210,7 +232,12 @@ class TriggerTUI(App):
 
     def refresh_status(self):
         connected = bool(self._ds and self._ds.connected)
-        state = f"[bold green]{t('connected')}[/]" if connected else f"[bold red]{t('waiting')}[/]"
+        if self.settings.use_dsx:
+            state = (f"[bold dodgerblue]{t('DSX: active')}[/]" if connected
+                     else f"[bold red]{t('DSX: off')}[/]")
+        else:
+            state = (f"[bold green]{t('connected')}[/]" if connected
+                     else f"[bold red]{t('waiting')}[/]")
         self.query_one("#status", Static).update(f"DualSense: {state}")
 
     def refresh_profile(self):

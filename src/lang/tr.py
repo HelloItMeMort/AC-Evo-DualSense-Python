@@ -77,7 +77,7 @@ STRINGS = {
         "UDP portu {port} kullanımda. Diğer dinleyiciyi kapatın ya da Sistem sekmesinden portu değiştirin.",
 
     # --- system tab sections / fields ---
-    "Telemetry (applies on next launch)": "Telemetri (sonraki açılışta uygulanır)",
+    "Forza telemetry (applies on next launch)": "Forza telemetri (sonraki açılışta uygulanır)",
     "Startup pulse": "Başlangıç titreşimi",
     "Reconnect": "Yeniden bağlanma",
     "Game detection": "Oyun algılama",
@@ -87,6 +87,23 @@ STRINGS = {
     "Reconnect check interval (s)": "Yeniden bağlanma kontrol aralığı (s)",
     "Auto-exit when the game closes": "Oyun kapanınca otomatik çık",
     "Game-watch check interval (s)": "Oyun izleme kontrol aralığı (s)",
+
+    # --- DSX ---
+    "DSX": "DSX",
+    "DSX integration": "DSX entegrasyonu",
+    "Send triggers to DualSenseX over UDP. Takes effect immediately.":
+        "Tetikleri UDP üzerinden DualSenseX'e gönder. Hemen etkinleşir.",
+    "DSX connection": "DSX bağlantısı",
+    "Host": "Host",
+    "Port": "Port",
+    "Default 127.0.0.1. Match the host in DSX settings.":
+        "Varsayılan 127.0.0.1. DSX ayarlarındaki host ile eşleşmeli.",
+    "Default 6969. Match the port in DSX settings.":
+        "Varsayılan 6969. DSX ayarlarındaki port ile eşleşmeli.",
+    "DSX is active - controller managed by DSX. Disable DSX to select a controller here.":
+        "DSX etkin - kumanda DSX tarafından yönetiliyor. Kumanda seçmek için DSX'i devre dışı bırakın.",
+    "DSX: active": "DSX: etkin",
+    "DSX: off": "DSX: kapalı",
 
     # --- system tab controller block ---
     "Controller": "Kumanda",

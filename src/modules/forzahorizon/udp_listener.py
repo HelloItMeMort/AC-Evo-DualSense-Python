@@ -1,7 +1,7 @@
 """UDP listener for Forza Horizon telemetry.
 
 Packet = 324 bytes; offsets verified against FH Data Out spec.
-Always returns the *latest* packet (drains queued ones) so we never react
+Always returns the *latest* packet (drains queued ones) so I never react
 to stale telemetry.
 """
 import logging

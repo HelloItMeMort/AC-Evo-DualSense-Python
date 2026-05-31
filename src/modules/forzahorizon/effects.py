@@ -10,10 +10,10 @@ from modules.dualsense.adaptive_trigger import (
     RAW_MAX, off, rigid, vibrate, vibrate_zones, rigid_zones,
 )
 
-# Below this car speed (km/h) we trust raw wheel rotation instead of slip_ratio
+# Below this car speed (km/h) I trust raw wheel rotation instead of slip_ratio
 # (slip_ratio degenerates near zero speed). Above it, slip_ratio is canonical.
 LOW_SPEED_KMH = 5.0
-# Wheel angular speed (rad/s) above which we count as spinning at standstill.
+# Wheel angular speed (rad/s) above which I count as spinning at standstill.
 # ~30 rad/s = ~3 wheel revs/sec, clearly spun-up regardless of tire size.
 BURNOUT_ROT_THRESHOLD = 30.0
 

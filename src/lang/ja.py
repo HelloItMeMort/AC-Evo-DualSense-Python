@@ -77,7 +77,7 @@ STRINGS = {
         "UDP ポート {port} は使用中です。他のリスナーを閉じるか、システムタブでポートを変更してください。",
 
     # --- system tab sections / fields ---
-    "Telemetry (applies on next launch)": "テレメトリ（次回起動時に適用）",
+    "Forza telemetry (applies on next launch)": "Forza テレメトリ（次回起動時に適用）",
     "Startup pulse": "起動時の振動",
     "Reconnect": "再接続",
     "Game detection": "ゲーム検出",
@@ -87,6 +87,23 @@ STRINGS = {
     "Reconnect check interval (s)": "再接続の確認間隔 (秒)",
     "Auto-exit when the game closes": "ゲーム終了時に自動終了",
     "Game-watch check interval (s)": "ゲーム監視の確認間隔 (秒)",
+
+    # --- DSX ---
+    "DSX": "DSX",
+    "DSX integration": "DSX 連携",
+    "Send triggers to DualSenseX over UDP. Takes effect immediately.":
+        "UDP 経由でトリガーを DualSenseX に送信。即座に反映されます。",
+    "DSX connection": "DSX 接続",
+    "Host": "ホスト",
+    "Port": "ポート",
+    "Default 127.0.0.1. Match the host in DSX settings.":
+        "デフォルト 127.0.0.1。DSX 設定のホストと一致させる必要があります。",
+    "Default 6969. Match the port in DSX settings.":
+        "デフォルト 6969。DSX 設定のポートと一致させる必要があります。",
+    "DSX is active - controller managed by DSX. Disable DSX to select a controller here.":
+        "DSX が有効 - コントローラーは DSX が管理中。コントローラーを選択するには DSX を無効にしてください。",
+    "DSX: active": "DSX: 有効",
+    "DSX: off": "DSX: オフ",
 
     # --- system tab controller block ---
     "Controller": "コントローラー",

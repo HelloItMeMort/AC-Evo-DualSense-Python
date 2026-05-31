@@ -79,7 +79,7 @@ That's why you can run both at the same time and neither one breaks the other.
 1. Go to the [latest release](https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest).
 2. Download **`win_start.bat`** (Windows) or **`linux_start.sh`** (Linux).
 3. Put it in any empty folder.
-4. **Important:** We highly recommend installing **`uv`** manually first. Open PowerShell and run this command:
+4. **Important:** I highly recommend installing **`uv`** manually first. Open PowerShell and run this command:
    ```powershell
    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
    ```
@@ -254,6 +254,12 @@ src/
         ├── udp_listener.py                     # UDP parser
         └── effects.py                          # Forza-aware Controller + animations
 ```
+
+---
+
+## 🎮 DSX Support
+
+I have integrated DSX (DualSenseX) support. Due to DSX limitations, you might not get the exact 1:1 experience, but I have done my best. A lower-fidelity version of the adaptive trigger effects is fully supported.
 
 ---
 

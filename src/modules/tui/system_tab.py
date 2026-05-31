@@ -13,7 +13,7 @@ import threading
 from pathlib import Path
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Label, RadioButton, RadioSet, Switch
 
 from lang import t
@@ -59,16 +59,26 @@ class SystemTab(SettingsTab):
     SystemTab #controller-buttons { height: 3; padding: 0 1; }
     SystemTab #controller-buttons Button { margin-right: 2; }
     SystemTab #controller-radio { height: auto; padding: 0 1 1 1; }
+    SystemTab #controller-hid-section { height: auto; }
+    SystemTab #controller-hid-section > Label { padding: 0 1; }
     """
 
     def compose(self) -> ComposeResult:
         yield Label(t("Controller"), classes="section")
-        yield Label(t("Lock to controller"))
         # Skip blocking HID enumeration here; on_show() scans off-thread.
         self._devices = []
-        yield RadioSet(*self._build_controller_buttons(), id="controller-radio")
-        with Horizontal(id="controller-buttons"):
-            yield Button(t("Rescan"), id="controller-rescan")
+        # Controller picking only applies in HID mode; hidden while DSX owns the device.
+        with Vertical(id="controller-hid-section"):
+            yield Label(t("Lock to controller"))
+            yield RadioSet(*self._build_controller_buttons(), id="controller-radio")
+            with Horizontal(id="controller-buttons"):
+                yield Button(t("Rescan"), id="controller-rescan")
+        yield Label(
+            t("DSX is active - controller managed by DSX. "
+              "Disable DSX to select a controller here."),
+            id="dsx-controller-note",
+            classes="hint",
+        )
 
         yield Label(t("Updates"), classes="section")
         if sentinel_path() is None:
@@ -95,9 +105,24 @@ class SystemTab(SettingsTab):
         # the prefs file was edited externally.
         if sentinel_path() is not None:
             apply_sentinel(self.settings.check_for_updates)
+        self._sync_controller_visibility()
+
+    def _sync_controller_visibility(self) -> None:
+        """Controller picking is meaningless while DSX owns the device, so swap the
+        HID section for an explanatory note when DSX is on."""
+        from textual.css.query import NoMatches
+        try:
+            hid = self.query_one("#controller-hid-section")
+            note = self.query_one("#dsx-controller-note")
+        except NoMatches:
+            return
+        hid.display = not self.settings.use_dsx
+        note.display = bool(self.settings.use_dsx)
 
     async def on_show(self) -> None:
-        await self._rerender_controller()
+        # Re-enumerating is pointless (and the radio is hidden) under DSX.
+        if not self.settings.use_dsx:
+            await self._rerender_controller()
 
     def _attached_serial(self) -> str:
         ds = getattr(self.app, "_ds", None)
@@ -194,3 +219,6 @@ class SystemTab(SettingsTab):
         super().on_switch_changed(event)
         if event.switch.id == "check_for_updates":
             apply_sentinel(event.value)
+        elif event.switch.id == "use_dsx":
+            self._sync_controller_visibility()
+            log.info("DSX %s", "enabled" if event.value else "disabled")
