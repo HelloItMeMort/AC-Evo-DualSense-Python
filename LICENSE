@@ -15,7 +15,7 @@ using, copying, modifying, or distributing this software ("the Software").
    Subject to the conditions below, the copyright holder grants you a
    worldwide, royalty-free, non-exclusive license to:
 
-     (a) use and run the Software for any purpose, personal or commercial;
+     (a) use and run the Software for personal, non-commercial purposes only;
      (b) study and modify the Software and create derivative works; and
      (c) reproduce and distribute the Software and your derivative works, in
          source or compiled form.
@@ -82,5 +82,7 @@ using, copying, modifying, or distributing this software ("the Software").
    SOFTWARE.
 
 ================================================================================
-For other licensing arrangements, contact the copyright holder.
+For other licensing arrangements (including commercial licensing without
+attribution or sponsor requirements), please refer to docs/COMMERCIAL.md or contact:
+resmiyslmn@gmail.com
 ================================================================================
