@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FH DualSense - Linux/macOS launcher (zuv).
+# AC Evo DualSense - Linux/macOS launcher (zuv).
 # Bundle lives in app/. Auto-downloads from GitHub Releases if missing.
 # Set PRERELEASE=true to track rolling test builds (v999.0.0 tag).
 set -e
@@ -8,14 +8,14 @@ PRERELEASE=false
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP="$ROOT/app"
-BUNDLE="$APP/fhds.zuv.py"
-REPO="HamzaYslmn/Forza-Horizon-DualSense-Python"
+BUNDLE="$APP/acevo.zuv.py"
+REPO="HelloItMeMort/AC-Evo-DualSense-Python"
 
 if [ "$PRERELEASE" = "true" ]; then
-    URL="https://github.com/$REPO/releases/download/v999.0.0/fhds.zuv.py"
+    URL="https://github.com/$REPO/releases/download/v999.0.0/acevo.zuv.py"
     FLAGS=(--prerelease)
 else
-    URL="https://github.com/$REPO/releases/latest/download/fhds.zuv.py"
+    URL="https://github.com/$REPO/releases/latest/download/acevo.zuv.py"
     FLAGS=()
 fi
 
@@ -28,12 +28,12 @@ for a in "$@"; do
     esac
 done
 
-trap 'c=$?; echo; echo "[fhds exited with code $c]"; [ ${#GAME[@]} -eq 0 ] && read -r -p "Press Enter to close..." _ || true; exit $c' EXIT
+trap 'c=$?; echo; echo "[acevo exited with code $c]"; [ ${#GAME[@]} -eq 0 ] && read -r -p "Press Enter to close..." _ || true; exit $c' EXIT
 
 mkdir -p "$APP"
 
 if [ ! -f "$BUNDLE" ]; then
-    echo "Downloading fhds.zuv.py..."
+    echo "Downloading acevo.zuv.py..."
     curl -LsSf --fail "$URL" -o "$BUNDLE" || {
         echo "Download failed. Get it manually from https://github.com/$REPO/releases"
         exit 1

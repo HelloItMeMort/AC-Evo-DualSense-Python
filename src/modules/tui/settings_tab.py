@@ -6,14 +6,12 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, VerticalScroll
 from textual.widgets import Button, Input, Label, Switch
 
-from lang import t
+from modules.lang import t
 from modules.config import preferences
 from modules.tui.widgets import RangeSlider
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.tui.settings")
 
-# MARK: each field is (attr, label, lo, hi, hint).  lo/hi None for booleans.
-# Hints are reserved for things the label cannot say (warnings, defaults).
 SETTING_SECTIONS = [
     ("Pedal dead zones", [
         ("accel_deadzone", "Gas trigger dead zone", 0, 255, ""),
@@ -70,14 +68,6 @@ SYSTEM_SECTIONS = [
         ("dsx_port", "Port", 1, 65535,
          "Default 6969. Match the port in DSX settings."),
     ]),
-    ("Forza telemetry (applies on next launch)", [
-        ("udp_port", "UDP port", 1, 65535,
-         "In Forza HUD: host 127.0.0.1 (try ::1 if it fails)."),
-        ("udp_forward", "Forward telemetry", None, None,
-         "Mirror every received packet to another app (e.g. SimHub) without taking the port from it."),
-        ("udp_forward_to", "Forward to", None, None,
-         "host:port targets, comma-separated. Default 127.0.0.1:5301."),
-    ]),
     ("Startup pulse", [
         ("startup_pulse_force", "Startup buzz strength", 0, 255, ""),
     ]),
@@ -87,11 +77,9 @@ SYSTEM_SECTIONS = [
     ]),
     ("Game detection", [
         ("exit_on_game_close", "Auto-exit when the game closes", None, None, ""),
-        ("game_poll_interval_s", "Game-watch check interval (s)", 0.1, 60.0, ""),
     ]),
 ]
 
-# MARK: clamp table, ignores boolean rows
 SETTING_RANGES = {a: (lo, hi)
                   for sections in (SETTING_SECTIONS, SYSTEM_SECTIONS)
                   for _, fields in sections
@@ -167,7 +155,6 @@ class SettingsTab(VerticalScroll):
     def __init__(self, settings):
         super().__init__()
         self.settings = settings
-        # MARK: two-click reset confirmation
         self._reset_armed = False
 
     def compose(self) -> ComposeResult:
@@ -185,38 +172,24 @@ class SettingsTab(VerticalScroll):
                         yield Label(t(label), classes="field")
                 elif isinstance(lo, (int, float)) and isinstance(hi, (int, float)):
                     input_type = "integer" if isinstance(value, int) else "number"
-                    # MARK: integer sliders snap to 5; float sliders snap to span/200
                     step = 5.0 if isinstance(value, int) else None
-                    # MARK: ports have no meaningful "tune by feel" - skip the slider
-                    if attr in ("udp_port", "dsx_port"):
-                        with Horizontal(classes="row"):
-                            yield Label(t(label), classes="field")
-                            # MARK: flex spacer keeps the input aligned with the slider column
-                            yield Label("", classes="spacer")
-                            yield Input(
-                                value=_format_value(value),
-                                id=f"set-{attr}",
-                                type=input_type,
-                            )
-                    else:
-                        with Horizontal(classes="row"):
-                            yield Label(t(label), classes="field")
-                            yield RangeSlider(
-                                float(value),
-                                float(lo),
-                                float(hi),
-                                step=step,
-                                id=f"slider-{attr}",
-                            )
-                            yield Input(
-                                value=_format_value(value),
-                                id=f"set-{attr}",
-                                type=input_type,
-                            )
+                    with Horizontal(classes="row"):
+                        yield Label(t(label), classes="field")
+                        yield RangeSlider(
+                            float(value),
+                            float(lo),
+                            float(hi),
+                            step=step,
+                            id=f"slider-{attr}",
+                        )
+                        yield Input(
+                            value=_format_value(value),
+                            id=f"set-{attr}",
+                            type=input_type,
+                        )
                 else:
                     with Horizontal(classes="row"):
                         yield Label(t(label), classes="field")
-                        # Flex spacer right-aligns the host box like the port box above it.
                         if attr == "dsx_host":
                             yield Label("", classes="spacer")
                         yield Input(value=_format_value(value), id=f"set-{attr}")
@@ -225,10 +198,7 @@ class SettingsTab(VerticalScroll):
         if self.SHOW_RESET:
             yield Button(t("Reset to defaults"), id="reset-settings", variant="error")
 
-    # ---- Switch -----------------------------------------------------------
-
     def on_switch_changed(self, event: Switch.Changed):
-        # MARK: ignore events fired by programmatic widget refresh (profile/reset)
         if getattr(self.app, "_refreshing", False):
             return
         attr = event.switch.id
@@ -238,15 +208,9 @@ class SettingsTab(VerticalScroll):
             setattr(self.settings, attr, event.value)
             preferences.save(self.settings)
             log.info("%s = %s", attr, event.value)
-        # Push live every time - profile-load/reset sets widget values after
-        # the settings object is already mutated, so I'd otherwise miss
-        # propagating to the running DualSense instance.
         self._push_live(attr, event.value)
 
-    # ---- Slider -----------------------------------------------------------
-
     def on_range_slider_changed(self, event: RangeSlider.Changed) -> None:
-        # MARK: drag handler; ignore programmatic refresh
         if getattr(self.app, "_refreshing", False):
             return
         sid = event.slider.id or ""
@@ -270,13 +234,10 @@ class SettingsTab(VerticalScroll):
             pass
         self._push_live(attr, new)
 
-    # ---- Input ------------------------------------------------------------
-
     def on_input_submitted(self, event: Input.Submitted):
         self._commit(event.input, strict=True)
 
     def on_input_changed(self, event: Input.Changed):
-        # Live-save on every keystroke that parses cleanly; partial input is ignored.
         if getattr(self.app, "_refreshing", False):
             return
         self._commit(event.input, strict=False)
@@ -320,18 +281,14 @@ class SettingsTab(VerticalScroll):
             setattr(self.settings, attr, new)
             preferences.save(self.settings)
             log.info("%s = %s", attr, new)
-            # MARK: keep sibling slider in sync when user types a value
-            try:
-                sld = self.query_one(f"#slider-{attr}", RangeSlider)
-                target = float(new)
-                if abs(sld.value - target) > 1e-9:
-                    sld.value = target
-            except Exception:
-                pass
-        # Always push live (see on_switch_changed for the profile-load reason).
+        try:
+            sld = self.query_one(f"#slider-{attr}", RangeSlider)
+            target = float(new)
+            if abs(sld.value - target) > 1e-9:
+                sld.value = target
+        except Exception:
+            pass
         self._push_live(attr, new)
-
-    # ---- Reset (two-click confirm) ---------------------------------------
 
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id != "reset-settings":
@@ -346,20 +303,13 @@ class SettingsTab(VerticalScroll):
         self.app.refresh_setting_widgets()
         log.info("Settings reset to defaults.")
 
-    # ---- Live propagation -------------------------------------------------
-
     def _push_live(self, attr: str, value) -> None:
-        """Push settings that DualSense captures at construction to the running
-        instance so the toggle takes effect without restarting the backend."""
         ds = getattr(self.app, "_ds", None)
         if ds is None:
             return
-        # MARK: use_dsx swap - restart backend immediately so the user doesn't
-        # have to manually quit and relaunch after toggling DSX on/off.
         if attr == "use_dsx":
             threading.Thread(target=self.app._restart_backend, daemon=True).start()
             return
-        # DSXClient implements these as no-ops, so calling unconditionally is safe.
         if attr == "enable_reconnect":
             ds.set_reconnect_enabled(value)
         elif attr == "reconnect_interval_s":

@@ -219,9 +219,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# fhds user toggle preferences (per-user, not part of the project)
+# acevo user toggle preferences (per-user, not part of the project)
 user_preferences.json
 
-# fhds crash log
+# acevo crash log
 crash.log
 .claude

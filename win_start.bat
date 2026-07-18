@@ -1,5 +1,5 @@
 @echo off
-REM FH DualSense - Windows launcher (zuv).
+REM AC Evo DualSense - Windows launcher (zuv).
 REM Bundle lives in app/. Auto-downloads from GitHub Releases if missing.
 REM Set PRERELEASE=true to track rolling test builds (v999.0.0 tag).
 setlocal EnableDelayedExpansion
@@ -8,14 +8,14 @@ set "PRERELEASE=false"
 
 set "DIR=%~dp0"
 set "APP=%DIR%app"
-set "BUNDLE=%APP%\fhds.zuv.py"
-set "REPO=HamzaYslmn/Forza-Horizon-DualSense-Python"
+set "BUNDLE=%APP%\acevo.zuv.py"
+set "REPO=HelloItMeMort/AC-Evo-DualSense-Python"
 
 if /i "%PRERELEASE%"=="true" (
-    set "URL=https://github.com/%REPO%/releases/download/v999.0.0/fhds.zuv.py"
+    set "URL=https://github.com/%REPO%/releases/download/v999.0.0/acevo.zuv.py"
     set "FLAGS=--prerelease"
 ) else (
-    set "URL=https://github.com/%REPO%/releases/latest/download/fhds.zuv.py"
+    set "URL=https://github.com/%REPO%/releases/latest/download/acevo.zuv.py"
     set "FLAGS="
 )
 
@@ -44,7 +44,7 @@ goto argloop
 if not exist "%APP%" mkdir "%APP%"
 
 if not exist "%BUNDLE%" (
-    echo Downloading fhds.zuv.py...
+    echo Downloading acevo.zuv.py...
     curl.exe -L --fail -o "%BUNDLE%" "%URL%" || (
         echo Download failed. Get it manually from https://github.com/%REPO%/releases
         pause & exit /b 1

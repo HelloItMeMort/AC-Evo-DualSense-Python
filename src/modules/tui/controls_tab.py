@@ -5,10 +5,10 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Label, Switch
 
-from lang import t
+from modules.lang import t
 from modules.config import preferences
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.tui.controls")
 
 # Listed highest priority first, matching the Controller's effect precedence.
 TRIGGER_CONTROLS = [

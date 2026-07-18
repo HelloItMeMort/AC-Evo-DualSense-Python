@@ -1,11 +1,4 @@
-"""System tab: global / launch-time settings, with the ZUV update toggle at
-the top.
-
-The ZUV loader runs *before* this app starts, so toggling the update check here
-only affects the next launch. The mechanism is a sentinel file
-(.zuv-update-disabled) the loader checks in its cache_root; when present, the
-update check is skipped. ZUV exports cache_root via the ZUV_CACHE_ROOT env var.
-"""
+"""System tab: global / launch-time settings."""
 import asyncio
 import logging
 import os
@@ -16,28 +9,23 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Label, RadioButton, RadioSet, Switch
 
-from lang import t
+from modules.lang import t
 from modules.config import preferences
 from modules.dualsense.main import _enumerate_dualsenses, _is_bluetooth, identify_pulse
 
 from .settings_tab import SYSTEM_SECTIONS, SettingsTab
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo")
 
 SENTINEL = ".zuv-update-disabled"
 
 
 def sentinel_path() -> Path | None:
-    """Path to the sentinel file, or None when not running inside a ZUV bundle."""
     root = os.environ.get("ZUV_CACHE_ROOT")
     return Path(root) / SENTINEL if root else None
 
 
 def apply_sentinel(enabled: bool) -> None:
-    """Reconcile the on-disk sentinel with the desired setting.
-    enabled=True  -> updates wanted -> remove sentinel.
-    enabled=False -> updates off    -> create sentinel.
-    No-op when running outside a ZUV bundle (no ZUV_CACHE_ROOT)."""
     path = sentinel_path()
     if path is None:
         return
@@ -65,9 +53,7 @@ class SystemTab(SettingsTab):
 
     def compose(self) -> ComposeResult:
         yield Label(t("Controller"), classes="section")
-        # Skip blocking HID enumeration here; on_show() scans off-thread.
         self._devices = []
-        # Controller picking only applies in HID mode; hidden while DSX owns the device.
         with Vertical(id="controller-hid-section"):
             yield Label(t("Lock to controller"))
             yield RadioSet(*self._build_controller_buttons(), id="controller-radio")
@@ -83,33 +69,22 @@ class SystemTab(SettingsTab):
         yield Label(t("Updates"), classes="section")
         if sentinel_path() is None:
             yield Label(
-                t("ZUV not found: this build is not running inside a ZUV bundle "
-                  "(ZUV_CACHE_ROOT env var is missing), so the update toggle has "
-                  "nothing to control. Run the bundled .zuv.py to manage updates."),
+                t("ZUV not found: this build is not running inside a ZUV bundle"),
                 classes="error",
             )
         else:
             with Horizontal(classes="row"):
                 yield Switch(value=self.settings.check_for_updates, id="check_for_updates")
                 yield Label(t("Check for updates at launch"))
-            yield Label(
-                t("When off, ZUV will not prompt for updates on startup. "
-                  "Toggle on and restart the app to check for a new release."),
-                classes="hint",
-            )
 
         yield from super().compose()
 
     def on_mount(self) -> None:
-        # Reconcile sentinel with stored setting in case the cache was wiped or
-        # the prefs file was edited externally.
         if sentinel_path() is not None:
             apply_sentinel(self.settings.check_for_updates)
         self._sync_controller_visibility()
 
     def _sync_controller_visibility(self) -> None:
-        """Controller picking is meaningless while DSX owns the device, so swap the
-        HID section for an explanatory note when DSX is on."""
         from textual.css.query import NoMatches
         try:
             hid = self.query_one("#controller-hid-section")
@@ -120,7 +95,6 @@ class SystemTab(SettingsTab):
         note.display = bool(self.settings.use_dsx)
 
     async def on_show(self) -> None:
-        # Re-enumerating is pointless (and the radio is hidden) under DSX.
         if not self.settings.use_dsx:
             await self._rerender_controller()
 
@@ -171,9 +145,7 @@ class SystemTab(SettingsTab):
         return button.id[len("ctrl-"):]
 
     async def _rerender_controller(self) -> None:
-        # Enumerate off-thread; blocking HID I/O would freeze the event loop.
         self._devices = await asyncio.to_thread(_enumerate_dualsenses)
-        # await remove_children() before mount() to avoid a DuplicateIds collision.
         radio = self.query_one("#controller-radio", RadioSet)
         await radio.remove_children()
         for b in self._build_controller_buttons():
@@ -182,7 +154,6 @@ class SystemTab(SettingsTab):
     async def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
         if event.radio_set.id != "controller-radio":
             return
-        # Force visual sync: clear stale value=True on all but the pressed button.
         pressed = event.pressed
         for rb in event.radio_set.query(RadioButton):
             if rb is not pressed and rb.value:

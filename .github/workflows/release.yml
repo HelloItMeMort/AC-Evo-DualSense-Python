@@ -79,7 +79,7 @@ jobs:
       - name: Build zuv bundle
         run: |
           mkdir -p release
-          uvx zuv build src -o release/fhds.zuv.py \
+          uvx zuv build src -o release/acevo.zuv.py \
             --update-repo HamzaYslmn/Forza-Horizon-DualSense-Python
           cp win_start.bat linux_start.sh release/
 
@@ -104,7 +104,7 @@ jobs:
               --with customtkinter --with textual `
               --with hidapi --with psutil --with dotenv `
               --with pystray --with pillow `
-              pyinstaller "$Env:GITHUB_WORKSPACE\packaging\windows\fhds.spec" `
+              pyinstaller "$Env:GITHUB_WORKSPACE\packaging\windows\acevo.spec" `
               --distpath "$Env:GITHUB_WORKSPACE\packaging\windows\dist" `
               --workpath "$Env:GITHUB_WORKSPACE\packaging\windows\build" `
               --noconfirm --clean
@@ -146,7 +146,7 @@ jobs:
               --with customtkinter --with textual \
               --with hidapi --with psutil --with dotenv \
               --with pystray --with pillow \
-              pyinstaller "$GITHUB_WORKSPACE/packaging/linux/fhds.spec" \
+              pyinstaller "$GITHUB_WORKSPACE/packaging/linux/acevo.spec" \
               --distpath "$GITHUB_WORKSPACE/packaging/linux/dist" \
               --workpath "$GITHUB_WORKSPACE/packaging/linux/build" \
               --noconfirm --clean
@@ -187,7 +187,7 @@ jobs:
           body: |
             ## ✅ Recommended: launcher scripts
 
-            Download **`win_start.bat`** (Windows) or **`linux_start.sh`** (Linux), drop it in any folder, and double-click. The launcher fetches `fhds.zuv.py`, installs `uv` if needed, runs the app, and self-updates on every launch. This is the supported path and works the same across all Windows versions.
+            Download **`win_start.bat`** (Windows) or **`linux_start.sh`** (Linux), drop it in any folder, and double-click. The launcher fetches `acevo.zuv.py`, installs `uv` if needed, runs the app, and self-updates on every launch. This is the supported path and works the same across all Windows versions.
 
             ## 🧪 Experimental: standalone binaries
 
@@ -195,9 +195,9 @@ jobs:
 
             ---
             > **Heads up**
-            > - The bundle self-updates each run from this release. Keep `fhds.zuv.py` next to your launcher script.
+            > - The bundle self-updates each run from this release. Keep `acevo.zuv.py` next to your launcher script.
             > - Settings live in `data/user_preferences.json` next to the launcher and survive updates.
             > - Linux: launcher offers to install `70-dualsense.rules` to `/etc/udev/rules.d/` once.
-            > - Prerelease channel: run `uv run fhds.zuv.py --prerelease` to track rolling test builds.
+            > - Prerelease channel: run `uv run acevo.zuv.py --prerelease` to track rolling test builds.
           files: release/*
 

@@ -6,7 +6,7 @@ import zlib
 
 from . import preferences
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.profiles")
 
 SHARE_PREFIX = "FHDS:"
 _DEFAULT = preferences.DEFAULT_PROFILE_NAME

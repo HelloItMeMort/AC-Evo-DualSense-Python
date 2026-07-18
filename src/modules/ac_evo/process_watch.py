@@ -1,4 +1,4 @@
-"""Exit when the Forza Horizon process disappears. Cross-platform: Windows + Linux/Proton
+"""Exit when the AC Evo process disappears. Cross-platform: Windows + Linux/Proton
 (Proton runs the Windows binary, so the process name is the same on both)."""
 import logging
 import os
@@ -6,11 +6,11 @@ import time
 
 import psutil
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo")
 
 
 class ProcessWatcher:
-    def __init__(self, name_contains=("forza",), poll_interval_s: float = 1.0):
+    def __init__(self, name_contains=("acevo",), poll_interval_s: float = 1.0):
         self.needles = tuple(n.lower() for n in name_contains)
         self.poll_interval = poll_interval_s
         self._last_check = 0.0
@@ -43,7 +43,7 @@ class ProcessWatcher:
         if now - self._last_check < self.poll_interval:
             return False
         self._last_check = now
-        # MARK: never let a psutil/OS error kill the main loop
+        # MARK: never let a psutil/OS error kill the main loop silently
         try:
             found = self._find()
         except Exception as e:

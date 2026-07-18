@@ -26,8 +26,9 @@ import webbrowser
 
 import customtkinter as ctk
 
-from lang import set_language, t
-from modules import forzahorizon, loop, make_backend
+from modules.lang import set_language, t
+from modules import ac_evo, make_backend
+from modules.ac_evo import loop
 from modules.config import preferences, profiles
 from modules.config.preferences import _version
 from modules.dualsense.adaptive_trigger import off, vibrate
@@ -42,7 +43,7 @@ from .profiles_tab import ProfilesTab
 from .settings_tab import SettingsTab
 from .system_tab import SystemTab
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.gui")
 
 HAPTIC_FREQ_HZ = 40
 HAPTIC_AMP_ON = 200
@@ -50,7 +51,7 @@ HAPTIC_AMP_OFF = 120
 HAPTIC_DURATION_S = 0.10
 
 SPONSOR_URL = "https://github.com/sponsors/HamzaYslmn"
-CHANGELOG_URL = "https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest"
+CHANGELOG_URL = "https://github.com/HelloItMeMort/AC-Evo-DualSense-Python/releases/latest"
 
 NAV_ITEMS = ("Controls", "Profiles", "Settings", "System", "Language", "Logs")
 
@@ -71,6 +72,7 @@ class _QueueLogHandler(logging.Handler):
 
 class TriggerGUI:
     def __init__(self, settings):
+        print("TriggerGUI.__init__ starting...", flush=True)
         self.settings = settings
         set_language(settings.language)
 
@@ -96,7 +98,7 @@ class TriggerGUI:
 
         # Window
         self.root = ctk.CTk()
-        self.root.title("FH DualSense")
+        self.root.title("AC Evo DualSense")
         self._set_window_icon()
         self._center_window()
         self._tray = TrayController(self.root, on_show=self._show_window, on_quit=self._quit)
@@ -348,6 +350,7 @@ class TriggerGUI:
     # MARK: lifecycle -------------------------------------------------------
 
     def run(self):
+        print("TriggerGUI.run - starting mainloop...", flush=True)
         self.root.after(0, self._start_backend)
         self.root.after(1000, self._tick_status)
         self.root.after(100, self._drain_logs)
@@ -408,9 +411,9 @@ class TriggerGUI:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=2.0)
-        if self._listener_cm:
+        if self._reader:
             try:
-                self._listener_cm.__exit__(None, None, None)
+                self._reader.close()
             except Exception:
                 pass
         if self._ds:
@@ -440,31 +443,29 @@ class TriggerGUI:
         self.root.after(100, self._drain_logs)
 
     def _start_backend(self):
+        print("_start_backend called", flush=True)
         s = self.settings
         try:
             preferences.load(s)
             self._ds = make_backend(s, s.enable_startup_pulse)
             self._ds.open()
-            self._listener_cm = forzahorizon.UDPListener(
-                s.udp_host, s.udp_port, s.udp_timeout, s.udp_forward_to, s.udp_forward)
-            self._listener = self._listener_cm.__enter__()
-            log.info("Listening on %s:%d", s.udp_host, s.udp_port)
-            log.info("In game: HUD & Gameplay -> Data Out: ON, IP %s, Port %d",
-                     s.udp_host, s.udp_port)
+            self._reader = ac_evo.AcEvoReader(poll_hz=s.shm_poll_hz)
+            print("Backend started, connecting to SHM...", flush=True)
+            log.info("Connecting to AC Evo shared memory...")
             if s.use_dsx:
                 log.info("DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
         except OSError:
-            log.exception("UDP bind failed on %s:%d", s.udp_host, s.udp_port)
-            self.status_pill.set_label(t("UDP port {port} in use").format(port=s.udp_port))
+            log.exception("SHM connect failed")
+            self.status_pill.set_label(t("Backend failed: SHM not available"))
         except Exception as exc:
             log.exception("Backend startup failed")
             self.status_pill.set_label(t("Backend failed: {error}").format(error=exc))
 
     def _run_loop(self):
         try:
-            loop.run(self._ds, self._listener, self.settings, stop_event=self._stop)
+            loop.run(self._ds, self._reader, self.settings, stop_event=self._stop)
         except Exception:
             log.exception("Telemetry loop crashed")
         finally:

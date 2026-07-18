@@ -4,12 +4,12 @@ import tkinter as tk
 
 import customtkinter as ctk
 
-from lang import t
+from modules.lang import t
 
 from . import theme as T
 from . import widgets as W
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.gui.logs")
 
 LOG_LEVELS = ("WARNING", "INFO", "DEBUG")
 DEFAULT_LOG_LEVEL = "INFO"

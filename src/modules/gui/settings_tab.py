@@ -8,13 +8,13 @@ import threading
 
 import customtkinter as ctk
 
-from lang import t
+from modules.lang import t
 from modules.config import preferences
 
 from . import theme as T
 from . import widgets as W
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.gui.settings")
 
 # Mirrors src/modules/tui/settings_tab.py exactly.
 SETTING_SECTIONS = [
@@ -73,9 +73,9 @@ SYSTEM_SECTIONS = [
         ("dsx_port", "Port", 1, 65535,
          "Default 6969. Match the port in DSX settings."),
     ]),
-    ("Forza telemetry (applies on next launch)", [
+    ("Telemetry (applies on next launch)", [
         ("udp_port", "UDP port", 1, 65535,
-         "In Forza HUD: host 127.0.0.1 (try ::1 if it fails)."),
+         "Used by AC Evo UDP telemetry bridge. Host 127.0.0.1 (try ::1 if it fails)."),
         ("udp_forward", "Forward telemetry", None, None,
          "Mirror every received packet to another app (e.g. SimHub) without taking the port from it."),
         ("udp_forward_to", "Forward to", None, None,

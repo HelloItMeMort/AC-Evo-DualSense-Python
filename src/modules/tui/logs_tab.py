@@ -5,9 +5,9 @@ from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Label, Log, Static
 
-from lang import t
+from modules.lang import t
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.tui.logs")
 
 LOG_LEVELS = ("WARNING", "INFO", "DEBUG")
 DEFAULT_LOG_LEVEL = "INFO"

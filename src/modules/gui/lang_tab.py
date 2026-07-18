@@ -4,13 +4,13 @@ import tkinter as tk
 
 import customtkinter as ctk
 
-from lang import available, set_language, t
+from modules.lang import available, set_language, t
 from modules.config import preferences
 
 from . import theme as T
 from . import widgets as W
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.gui.lang")
 
 
 class LangTab(ctk.CTkFrame):

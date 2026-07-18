@@ -6,5 +6,5 @@ build/
 version_info.txt
 *.manifest
 
-# fhds.spec IS the build script - track it
-!fhds.spec
+# acevo.spec IS the build script - track it
+!acevo.spec

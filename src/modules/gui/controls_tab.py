@@ -3,13 +3,13 @@ import logging
 
 import customtkinter as ctk
 
-from lang import t
+from modules.lang import t
 from modules.config import preferences
 
 from . import theme as T
 from . import widgets as W
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.gui.controls")
 
 TRIGGER_CONTROLS = [
     ("L2 - Brake", [

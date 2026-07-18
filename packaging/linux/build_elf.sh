@@ -24,7 +24,7 @@ uvx --from "pyinstaller>=6.11.1" \
     --with customtkinter --with textual \
     --with hidapi --with psutil --with dotenv \
     --with pystray --with pillow \
-    pyinstaller "$HERE/fhds.spec" \
+    pyinstaller "$HERE/acevo.spec" \
     --distpath "$DIST" --workpath "$WORK" \
     --noconfirm --clean
 

@@ -8,8 +8,9 @@ from textual.app import App, ComposeResult
 from textual.containers import Horizontal
 from textual.widgets import Button, Header, Input, Static, Switch, TabbedContent, TabPane
 
-from lang import set_language, t
-from modules import loop, forzahorizon, make_backend
+from modules.lang import set_language, t
+from modules import ac_evo, make_backend
+from modules.ac_evo import loop
 from modules.config import preferences, profiles
 from modules.dualsense.adaptive_trigger import off, vibrate
 from modules.config.preferences import _version
@@ -22,7 +23,7 @@ from .settings_tab import SettingsTab
 from .system_tab import SystemTab
 from .widgets import RangeSlider
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.tui")
 
 HAPTIC_FREQ_HZ = 40
 HAPTIC_AMP_ON = 200
@@ -80,7 +81,7 @@ class TriggerTUI(App):
     ]
     HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (80, "-normal"), (120, "-wide")]
     SPONSOR_URL = "https://github.com/sponsors/HamzaYslmn"
-    CHANGELOG_URL = "https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python/releases/latest"
+    CHANGELOG_URL = "https://github.com/HelloItMeMort/AC-Evo-DualSense-Python/releases/latest"
 
     def __init__(self, settings):
         super().__init__()
@@ -122,7 +123,7 @@ class TriggerTUI(App):
     # --- lifecycle ----------------------------------------------------------
 
     def on_mount(self):
-        self.title = "FH DualSense"
+        self.title = "AC Evo DualSense"
         self.sub_title = f"UDP {self.settings.udp_host}:{self.settings.udp_port}"
 
         root = logging.getLogger()
@@ -153,8 +154,8 @@ class TriggerTUI(App):
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=2.0)
-        if self._listener_cm:
-            self._listener_cm.__exit__(None, None, None)
+        if self._reader:
+            self._reader.close()
         if self._ds:
             self._ds.close()
 
@@ -165,27 +166,22 @@ class TriggerTUI(App):
             preferences.load(s)
             self._ds = make_backend(s, s.enable_startup_pulse)
             self._ds.open()
-            self._listener_cm = forzahorizon.UDPListener(
-                s.udp_host, s.udp_port, s.udp_timeout, s.udp_forward_to, s.udp_forward)
-            self._listener = self._listener_cm.__enter__()
-            log.info("Listening on %s:%d", s.udp_host, s.udp_port)
-            log.info("In game: HUD & Gameplay -> Data Out: ON, IP %s, Port %d", s.udp_host, s.udp_port)
+            self._reader = ac_evo.AcEvoReader(poll_hz=s.shm_poll_hz)
+            log.info("Connecting to AC Evo shared memory...")
             if s.use_dsx:
                 log.info("DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
             self._thread = threading.Thread(target=self._run_loop, daemon=True)
             self._thread.start()
         except OSError as exc:
-            # MARK: friendly UDP bind error - usually port in use
-            log.exception("UDP bind failed on %s:%d", s.udp_host, s.udp_port)
-            msg = t("UDP port {port} is in use. Close the other listener or change the port in the System tab.").format(port=s.udp_port)
-            self.query_one("#status", Static).update(msg)
+            log.exception("SHM connect failed")
+            self.query_one("#status", Static).update("Backend failed: SHM not available")
         except Exception as exc:
             log.exception("Backend startup failed")
             self.query_one("#status", Static).update(t("Backend failed: {error}").format(error=exc))
 
     def _run_loop(self):
         try:
-            loop.run(self._ds, self._listener, self.settings, stop_event=self._stop)
+            loop.run(self._ds, self._reader, self.settings, stop_event=self._stop)
         except Exception:
             # An unexpected error here would otherwise kill the backend thread
             log.exception("Telemetry loop crashed")

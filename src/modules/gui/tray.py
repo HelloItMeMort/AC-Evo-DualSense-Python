@@ -15,7 +15,7 @@ import tkinter as tk
 
 from modules.config import paths
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.tray")
 
 # On Wayland, XEmbed trays don't show; force the appindicator backend.
 if (
@@ -66,8 +66,8 @@ class TrayController:
             pystray.MenuItem("Show", _show, default=True),
             pystray.MenuItem("Quit", _quit),
         )
-        self._icon = pystray.Icon("fhds", image, "FH DualSense", menu)
-        self._thread = threading.Thread(target=self._icon.run, name="fhds-tray", daemon=True)
+        self._icon = pystray.Icon("acevo", image, "AC Evo DualSense", menu)
+        self._thread = threading.Thread(target=self._icon.run, name="acevo-tray", daemon=True)
         self._thread.start()
         self._started = True
         log.info("System tray started (backend: %s)", os.environ.get("PYSTRAY_BACKEND", "auto"))

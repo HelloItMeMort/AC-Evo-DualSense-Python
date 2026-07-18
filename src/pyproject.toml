@@ -1,7 +1,7 @@
 [project]
-name = "fhds"
-version = "1.6.2"
-description = "Forza Horizon DualSense adaptive triggers (Steam keeps rumble)."
+name = "acevo-dualsense"
+version = "1.0.0"
+description = "Assetto Corsa EVO DualSense adaptive triggers (Steam keeps rumble)."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -14,6 +14,9 @@ dependencies = [
     "textual>=8.2.5",
     "PyGObject>=3.42.0; sys_platform == 'linux'",
 ]
+
+[project.scripts]
+acevo-dualsense = "main:run"
 
 [tool.pyrefly]
 project-includes = ["src"]

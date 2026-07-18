@@ -9,12 +9,7 @@ from textual.widget import Widget
 
 
 class RangeSlider(Widget, can_focus=True):
-    """Mouse-draggable horizontal bar over a numeric range.
-
-    - Click or drag anywhere on the bar to set the value.
-    - Left/Right arrow keys nudge by one step; PageUp/PageDown by ten steps.
-    - `value` is always a float; consumers cast to int where the field is int.
-    """
+    """Mouse-draggable horizontal bar over a numeric range."""
 
     DEFAULT_CSS = """
     RangeSlider {
@@ -46,7 +41,6 @@ class RangeSlider(Widget, can_focus=True):
         self.min_val = float(min_val)
         self.max_val = float(max_val)
         span = self.max_val - self.min_val
-        # MARK: default step = 1 for whole-int ranges, else span/200
         if step is not None:
             self.step = float(step)
         elif span > 50 and float(span).is_integer():
@@ -89,7 +83,6 @@ class RangeSlider(Widget, can_focus=True):
         self.capture_mouse()
 
     def on_mouse_move(self, event: events.MouseMove) -> None:
-        # MARK: only drag while a mouse button is held
         if event.button:
             self._set_and_emit(self._from_x(event.x))
 
@@ -117,5 +110,4 @@ class RangeSlider(Widget, can_focus=True):
             event.stop()
 
 
-# MARK: back-compat alias for any old imports
 AmpSlider = RangeSlider

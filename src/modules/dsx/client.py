@@ -17,7 +17,7 @@ from modules.dualsense.adaptive_trigger import off, rigid
 
 from . import dsx_wrapper as tm
 
-log = logging.getLogger("fhds.dsx")
+log = logging.getLogger("acevo.dsx")
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 6969

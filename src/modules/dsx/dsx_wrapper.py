@@ -37,7 +37,7 @@ from modules.dualsense.adaptive_trigger import (
     M_OFF, M_RIGID, M_RIGID_ZONES, M_VIBRATE, M_VIBRATE_ZONES,
 )
 
-log = logging.getLogger("fhds.dsx")
+log = logging.getLogger("acevo.dsx")
 
 TRIGGER_UPDATE = 1
 RESET_TO_USER_SETTINGS = 7

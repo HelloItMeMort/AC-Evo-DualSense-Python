@@ -4,13 +4,13 @@ import tkinter as tk
 
 import customtkinter as ctk
 
-from lang import t
+from modules.lang import t
 from modules.config import preferences, profiles
 
 from . import theme as T
 from . import widgets as W
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.gui.profiles")
 
 
 class ProfilesTab(ctk.CTkFrame):

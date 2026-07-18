@@ -20,7 +20,7 @@ from pathlib import Path
 
 from . import paths
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo.config")
 
 _DATA = paths.DATA
 PATH = _DATA / "user_preferences.json"

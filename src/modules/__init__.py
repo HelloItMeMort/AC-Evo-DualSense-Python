@@ -1,15 +1,13 @@
-"""FH DualSense building blocks — DualSense HID, UDP listener, settings."""
+"""AC Evo DualSense building blocks — DualSense HID, SHM reader, settings."""
 import logging
 import os
 
-from . import dsx, dualsense, forzahorizon, loop
+from . import ac_evo, dsx, dualsense
+from .ac_evo import loop
 
 
 def make_backend(s, enable_startup_pulse):
-    """Build the trigger writer the settings ask for: DualSense (HID) or DSXClient
-    (UDP to DualSenseX). Both share the set/open/close/connected surface, so callers
-    treat them interchangeably. Callers pass the pulse flag explicitly (the UIs
-    suppress it on a restart)."""
+    """Build the trigger writer the settings ask for."""
     if s.use_dsx:
         return dsx.DSXClient(
             host=s.dsx_host,
@@ -26,11 +24,9 @@ def make_backend(s, enable_startup_pulse):
     )
 
 
-# MARK: Console logging setup (--headless mode only, TUI wires its own handler)
 def setup_logging(debug: bool = False) -> None:
     if os.name == "nt":
-        os.system("")  # enable ANSI escapes on Windows CMD
-
+        os.system("")
     level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
         level=level,

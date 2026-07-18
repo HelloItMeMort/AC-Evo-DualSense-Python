@@ -7,13 +7,11 @@ from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv("./dev.env")
 
-
-from modules import forzahorizon, make_backend, setup_logging, loop
+from modules import ac_evo, make_backend, setup_logging
 from modules.config import paths, preferences, Settings
 
-log = logging.getLogger("fhds")
+log = logging.getLogger("acevo")
 
-# MARK: Crash log - only written on unhandled exceptions
 CRASH_LOG = paths.DATA / "crash.log"
 
 
@@ -39,15 +37,13 @@ def _log_zuv_status() -> None:
 def run(s: Settings) -> None:
     ds = make_backend(s, s.enable_startup_pulse)
     ds.open()
+    reader = ac_evo.AcEvoReader(poll_hz=s.shm_poll_hz)
     try:
-        with forzahorizon.UDPListener(s.udp_host, s.udp_port, s.udp_timeout,
-                                      s.udp_forward_to, s.udp_forward) as listener:
-            log.info("Listening on %s:%d | Ctrl+C to quit", s.udp_host, s.udp_port)
-            log.info("  In game: HUD & Gameplay -> Data Out: ON, IP 127.0.0.1, Port %d", s.udp_port)
-            if s.use_dsx:
-                log.info("  DSX mode: sending triggers to %s:%d", s.dsx_host, s.dsx_port)
-            loop.run(ds, listener, s)
+        log.info("Connecting to AC Evo shared memory...")
+        loop = ac_evo.loop
+        loop.run(ds, reader, s)
     finally:
+        reader.close()
         ds.close()
 
 
@@ -58,7 +54,11 @@ def run_tui(s: Settings) -> None:
 
 def run_gui(s: Settings) -> None:
     from modules.gui import TriggerGUI
-    TriggerGUI(s).run()
+    try:
+        TriggerGUI(s).run()
+    except Exception:
+        import traceback; traceback.print_exc()
+        raise
 
 
 def _confirm(prompt: str) -> bool:
@@ -68,15 +68,12 @@ def _confirm(prompt: str) -> bool:
         return False
 
 
-# MARK: Entry point
 if __name__ == "__main__":
-    p = argparse.ArgumentParser(description="FH DualSense adaptive triggers (Steam keeps rumble)")
-    p.add_argument("--host", default="127.0.0.1", help="UDP bind address")
-    p.add_argument("--port", type=int, default=None, help="UDP port")
-    p.add_argument("--debug", action="store_true", help="Verbose per-packet logs")
+    p = argparse.ArgumentParser(description="AC Evo DualSense adaptive triggers (Steam keeps rumble)")
+    p.add_argument("--debug", action="store_true", help="Verbose per-frame logs")
     p.add_argument("--headless", action="store_true", help="Disable UI, use console logs")
-    p.add_argument("--gui", action="store_true", help="Use the CustomTkinter GUI instead of the TUI")
-    p.add_argument("--tui", action="store_true", help="Force the Textual TUI (overrides UI env var)")
+    p.add_argument("--gui", action="store_true", help="Use the CustomTkinter GUI")
+    p.add_argument("--tui", action="store_true", help="Force the Textual TUI")
     args = p.parse_args()
 
     settings = Settings()
@@ -84,18 +81,13 @@ if __name__ == "__main__":
         preferences.load(settings)
     except preferences.PreferencesError as e:
         print(f"\n{e}", file=sys.stderr)
-        if not _confirm(f"Reset {preferences.PATH.name} to defaults? "
-                        f"(backup saved as {preferences.PATH.name}.bak) [y/N]: "):
-            print("Aborted. Please fix or delete the file manually, then retry.",
-                  file=sys.stderr)
+        if not _confirm(f"Reset {preferences.PATH.name} to defaults? [y/N]: "):
+            print("Aborted.", file=sys.stderr)
             sys.exit(1)
         preferences.reset_file()
         preferences.load(settings)
-    if args.host is not None: settings.udp_host = args.host
-    if args.port is not None: settings.udp_port = args.port
 
     sys.excepthook = _excepthook
-
     _log_zuv_status()
 
     try:

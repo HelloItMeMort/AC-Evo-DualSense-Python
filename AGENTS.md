@@ -4,62 +4,64 @@ Short tour. The full module-by-module reference is in the code; this is just a m
 
 ## What it is
 
-Small Python service. Reads Forza Horizon's UDP telemetry (5300) and drives
-**DualSense adaptive triggers** over raw HID, while leaving rumble bytes alone
-so Steam Input still handles rumble.
+Small Python service. Reads **Assetto Corsa EVO** telemetry from Windows shared
+memory and drives **DualSense adaptive triggers** over raw HID, while leaving
+rumble bytes alone so Steam Input still handles rumble.
+
+Forked from [HamzaYslmn/Forza-Horizon-DualSense-Python](https://github.com/HamzaYslmn/Forza-Horizon-DualSense-Python).
 
 ## Stack
 
 - Python `>=3.13`, `uv` for deps.
-- Deps: `hidapi`, `textual`, `psutil`.
-- Distributed as a single self-contained file (`fhds.zuv.py`) via [`zuv`](https://github.com/HamzaYslmn/zuv).
+- Deps: `hidapi`, `textual`, `psutil`, `customtkinter`, `pystray`, `pillow`.
+- Distributed as a single self-contained file (`acevo.zuv.py`) via [`zuv`](https://github.com/HamzaYslmn/zuv).
 - Windows + Linux. No tests.
 
 ## Layout
 
 One-liner:
 ```powershell
-uvx zuv build src -o app/fhds.zuv.py --update-repo HamzaYslmn/Forza-Horizon-DualSense-Python
+uvx zuv build src -o app/acevo.zuv.py --update-repo HelloItMeMort/AC-Evo-DualSense-Python
 ```
 
 ```
 src/
   main.py                    # entry: IS_ZUV check, args, TUI/headless boot
   pyproject.toml             # version, deps, [tool.zuv] entry+volume
-  lang/                      # i18n: one module per language (en/tr/zh/ja), auto-discovered
+  lang/                      # i18n: one module per language (en/tr/zh/zh_tw/ru), auto-discovered
   modules/
-    settings.py              # @dataclass Settings - ALL tunables live here
-    preferences.py           # JSON persistence (globals + active profile)
-    profiles.py              # named profile CRUD
-    loop.py                  # per-packet driver
-    forzahorizon/
-      udp_listener.py        # UDP socket + 324-byte FH packet parser
-      effects.py             # Forza-aware Controller + TriggerAnimations
+    ac_evo/
+      shm_reader.py          # SHM attach, ctypes structs, telemetry dict
+      effects.py             # AC Evo Controller + TriggerAnimations
+      loop.py                # per-frame driver
+      process_watch.py       # game proc watcher
     dualsense/
       main.py                # HID writer (USB+BT), persistent mode
-      adaptive_trigger.py  # generic effect primitives
+      adaptive_trigger.py    # generic effect primitives
       hidhide.py             # filesystem-only HidHide detection
-    tui/                     # Textual app (controls/profiles/settings/system/lang/logs)
-    emulation/               # optional fake telemetry for offline dev
-    exit_detection/          # watches game proc, closes when it exits
+    dsx/                     # DualSenseX UDP backend
+    config/                  # settings, preferences, profiles, paths
+    gui/                     # CustomTkinter app
+    tui/                     # Textual TUI
+  .python-version
 win_start.bat / linux_start.sh   # launchers (auto-download bundle + run uv)
-app/fhds.zuv.py              # the actual bundle users run
 .github/workflows/release.yml    # CI: build bundle, publish release
 ```
 
 ## Data flow (one frame)
 
 ```
-FH UDP 5300 -> parse_packet -> TriggerAnimation.update -> (left, right)
-                                                              |
-                              DualSense.set (state-change only)
-                                                              v
-                                                  HID write (trigger bytes only,
-                                                   rumble bytes untouched)
+AC Evo SHM -> AcEvoReader.read_latest() -> Controller.update() -> (left, right)
+                                                            |
+                            DualSense.set (state-change only)
+                                                            v
+                                                HID write (trigger bytes only,
+                                                 rumble bytes untouched)
 ```
 
 Trigger command = `(mode, p1, p2)`:
-- `M_OFF (0x05)` free, `M_RIGID (0x01)` constant force, `M_PULSE (0x06)` vibration.
+- `M_OFF (0x05)` free, `M_RIGID (0x01)` constant force, `M_VIBRATE (0x03)` buzz.
+- `M_RIGID_ZONES (0x02)` walls, `M_VIBRATE_ZONES (0x04)` sustained push.
 
 ## Run
 
@@ -74,7 +76,7 @@ uv run main.py
 
 One-liner:
 ```powershell
-uvx zuv build src -o app/fhds.zuv.py --update-repo HamzaYslmn/Forza-Horizon-DualSense-Python
+uvx zuv build src -o app/acevo.zuv.py --update-repo HelloItMeMort/AC-Evo-DualSense-Python
 ```
 
 Drop `--update-repo` if you don't want the bundle to self-update from GitHub
@@ -86,18 +88,14 @@ Bump the version first by editing `version = "X.Y.Z"` in `src/pyproject.toml`.
 ```powershell
 .\win_start.bat
 ```
-Launcher auto-downloads `app/fhds.zuv.py` if missing, installs `uv` if missing,
+Launcher auto-downloads `app/acevo.zuv.py` if missing, installs `uv` if missing,
 then `uv run`s the bundle.
-
-### In-game (once)
-Forza Horizon -> **Settings -> HUD and Gameplay -> Data Out: ON**, IP `127.0.0.1`,
-Port `5300`.
 
 ## CI gating
 
 `.github/workflows/release.yml`:
 - Push to `dev` with `prerelease` in commit msg -> prerelease tagged at the next patch above the latest stable release (e.g. latest `v1.4.5` -> `v1.4.6`).
-- Push to `main` with `release vX.Y.Z` in commit msg -> stable `vX.Y.Z`.
+- Push to `main` with `release VX.Y.Z` in commit msg -> stable `vX.Y.Z`.
 - Push tag `v*.*.*` -> stable release.
 - `workflow_dispatch` -> prerelease at the next patch (same rule as above).
 
@@ -112,7 +110,6 @@ Port `5300`.
 - All tunables go in `settings.py`, never inside module logic.
 - **Globals stay global.** Add to `preferences.GLOBAL_FIELDS`; never copy into per-profile dicts.
 - **Don't touch rumble bits.** HID writer only flips trigger bits in `valid_flag0`.
-- **Always drain UDP** via `recv_latest()`; never react to stale packets.
 - **State-change writes only.** The loop diffs `(left, right)` against `prev` and only calls `ds.set(...)` on change.
 - No em dash (`-`) anywhere - in code, docs, or chat. Plain hyphens only.
 - UTF-8 source files.
@@ -129,13 +126,13 @@ HidHide cloaking the device mid-session doesn't tear our handle down.
 
 | Want to... | Open this |
 |---|---|
-| Change a tunable / disable an effect | `src/modules/settings.py` |
-| Change how an effect feels | `src/modules/dualsense/adaptive_trigger.py` (primitive) or `src/modules/forzahorizon/effects.py` (game logic) |
+| Change a tunable / disable an effect | `src/modules/config/settings.py` |
+| Change how an effect feels | `src/modules/dualsense/adaptive_trigger.py` (primitive) or `src/modules/ac_evo/effects.py` (game logic) |
 | Touch raw HID bytes | `src/modules/dualsense/main.py` |
-| Add a telemetry field | `src/modules/forzahorizon/udp_listener.py` |
+| Add a telemetry field | `src/modules/ac_evo/shm_reader.py` |
 | Change CLI / startup wiring | `src/main.py` |
-| Change persistence layout | `src/modules/preferences.py` |
-| Edit the TUI | `src/modules/tui/` |
+| Change persistence layout | `src/modules/config/preferences.py` |
+| Edit the GUI/TUI | `src/modules/gui/` / `src/modules/tui/` |
 | Add/translate a UI language | `src/lang/` (drop a `<code>.py` with `NAME` + `STRINGS`) |
 | Change launcher behavior | `win_start.bat` / `linux_start.sh` |
 | Change CI gating | `.github/workflows/release.yml` |
